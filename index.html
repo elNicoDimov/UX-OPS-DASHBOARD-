@@ -1,5 +1,20 @@
-<script src="https://cdn.tailwindcss.com"></script>
-import React, { useState, useMemo } from 'react';
+/* =================================================================================
+   FILE 1: styles.css (Conceptually)
+   In a real setup, this would be your CSS file. 
+   Here we rely on Tailwind CSS classes which act as our styling layer.
+   =================================================================================
+*/
+
+// NOTE: The App component below now includes a script to auto-load Tailwind CDN.
+// This ensures styling works on GitHub Pages without extra build configuration.
+
+/* =================================================================================
+   FILE 2: script.js (Logic)
+   This section contains the imports, data, and React logic.
+   =================================================================================
+*/
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
@@ -239,6 +254,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("Vista General");
   const [activeQuarter, setActiveQuarter] = useState("All"); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // --- AUTO-INJECT TAILWIND (For GitHub Pages/Static Hosting) ---
+  useEffect(() => {
+    // Check if Tailwind is already loaded
+    if (!document.querySelector('script[src*="tailwindcss"]')) {
+      const script = document.createElement('script');
+      script.src = "https://cdn.tailwindcss.com";
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, []);
 
   // --- DATA TRANSFORMATION LOGIC ---
 
