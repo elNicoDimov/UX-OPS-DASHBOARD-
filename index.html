@@ -257,13 +257,38 @@ export default function App() {
 
   // --- AUTO-INJECT TAILWIND (For GitHub Pages/Static Hosting) ---
   useEffect(() => {
-    // Check if Tailwind is already loaded
-    if (!document.querySelector('script[src*="tailwindcss"]')) {
-      const script = document.createElement('script');
-      script.src = "https://cdn.tailwindcss.com";
-      script.async = true;
-      document.head.appendChild(script);
-    }
+    // 1. Check if Tailwind is already loaded or injected
+    if (window.tailwind || document.getElementById('tailwind-cdn')) return;
+
+    // 2. Inject Tailwind CSS via CDN
+    const script = document.createElement('script');
+    script.id = 'tailwind-cdn'; // ID ensures we don't inject twice
+    script.src = "https://cdn.tailwindcss.com";
+    script.async = true;
+    
+    script.onload = () => {
+      // 3. Configure theme extension for custom colors once loaded
+      // This helps if Arbitrary Values (JIT) struggle with dynamic content
+      if (window.tailwind) {
+        window.tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                brand: {
+                  yellow: '#FFD400',
+                  blue: '#00A9E0',
+                  red: '#FA0050',
+                  dark: '#1e2025',
+                  darker: '#0f1115',
+                }
+              }
+            }
+          }
+        };
+      }
+    };
+    
+    document.head.appendChild(script);
   }, []);
 
   // --- DATA TRANSFORMATION LOGIC ---
