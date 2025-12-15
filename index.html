@@ -1,0 +1,656 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
+  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
+} from 'recharts';
+import { 
+  LayoutDashboard, 
+  Users, 
+  Clock, 
+  CheckCircle2, 
+  CircleDashed, 
+  AlertCircle, 
+  TrendingUp, 
+  Lightbulb, 
+  Menu,
+  X,
+  Briefcase,
+  Calendar,
+  Database,
+  Flame // Added for the Fenix Logo placeholder
+} from 'lucide-react';
+
+// --- CONSTANTS & HELPERS ---
+
+const TEAMS = [
+  "Martechs & Ads",
+  "Onboarding",
+  "Fulfillment",
+  "Quick Commerce",
+  "Plus & Pricing",
+  "Payments",
+  "Food"
+];
+
+// Brand Palette for Charts
+const BRAND = {
+  yellow: '#FFD400',
+  blue: '#00A9E0',
+  red: '#FA0050', // PRIMARY BRAND COLOR
+  dark: '#1e2025',
+  darker: '#0f1115',
+  textMuted: '#94a3b8'
+};
+
+const parseDuration = (durationStr) => {
+  if (!durationStr) return 0;
+  let hours = 0;
+  const lower = durationStr.toLowerCase();
+  
+  if (lower.includes('week')) {
+    const match = lower.match(/(\d+)\s*week/);
+    if (match) hours += parseInt(match[1]) * 40;
+  }
+  if (lower.includes('day')) {
+    const match = lower.match(/(\d+)\s*day/);
+    if (match) hours += parseInt(match[1]) * 8;
+  }
+  if (lower.includes('hour')) {
+    const match = lower.match(/(\d+)\s*hour/);
+    if (match) hours += parseInt(match[1]);
+  }
+  return hours || 4; 
+};
+
+const getQuarter = (dateStr) => {
+  if (!dateStr) return "Q4"; 
+  const monthMap = {
+    'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
+    'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+  };
+  const parts = dateStr.toLowerCase().split('/');
+  if (parts.length < 2) return "Q4";
+  const month = monthMap[parts[1]];
+  
+  if (month < 3) return "Q1";
+  if (month < 6) return "Q2";
+  if (month < 9) return "Q3";
+  return "Q4";
+};
+
+// --- REAL DATA INJECTION ---
+
+const RAW_DATA = [
+  { team: "Martechs & Ads", name: "[Mejora] Nuevo caso de uso en Priority Message", duration: "4 days", status: "Done", date: "07/mar/25", type: "Mejora" },
+  { team: "Martechs & Ads", name: "[Mejora] Service Info", duration: "2 days", status: "Done", date: "17/mar/25", type: "Mejora" },
+  { team: "Martechs & Ads", name: "[Mejora] High Value Actions", duration: "4 days", status: "Done", date: "31/mar/25", type: "Mejora" },
+  { team: "Martechs & Ads", name: "[Mejora] Banner Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
+  { team: "Martechs & Ads", name: "[Mejora] Shoppable Banner", duration: "2 weeks", status: "Done", date: "02/jun/25", type: "Mejora" },
+  { team: "Martechs & Ads", name: "[Mejora] Box Progress", duration: "1 day", status: "Done", date: "03/jul/25", type: "Mejora" },
+  { team: "Martechs & Ads", name: "[Ajuste] Incentive Message S", duration: "1 day", status: "Done", date: "31/jul/25", type: "Mejora" },
+  { team: "Martechs & Ads", name: "[Ajuste] Box Progress Indicator", duration: "1 day", status: "Done", date: "31/jul/25", type: "Mejora" },
+  { team: "Martechs & Ads", name: "[Mejora] Tag M & S [Exclusive Deals]", duration: "4 days", status: "Done", date: "31/jul/25", type: "Mejora" },
+  { team: "Martechs & Ads", name: "[Affordability] HO & Componentización", duration: "8 weeks", status: "Done", date: "22/ago/25", type: "Mejora" },
+  { team: "Martechs & Ads", name: "[Mejora] Product Card S", duration: "3 days", status: "Done", date: "06/oct/25", type: "Mejora" },
+
+  { team: "Onboarding", name: "[Mejora] Search Placeholder Dinámico", duration: "2 weeks", status: "Done", date: "23/abr/25", type: "Mejora" },
+  { team: "Onboarding", name: "[Mejora] Home Hero Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
+  { team: "Onboarding", name: "[Mejora] Banner Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
+  { team: "Onboarding", name: "[Mejora] Home Hero", duration: "3 weeks", status: "Done", date: "21/may/25", type: "Mejora" },
+  { team: "Onboarding", name: "[Mejora] Home Hero Agregar Prop Boolena CTA", duration: "1 day", status: "Done", date: "17/jun/25", type: "Mejora" },
+
+  { team: "Plus & Pricing", name: "[Mejora] Rebrand & FOMO Plus", duration: "1 week", status: "Done", date: "12/feb/25", type: "Mejora" },
+  { team: "Plus & Pricing", name: "[Mejora] Pricing en componentes (Sin Impuestos)", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
+  { team: "Plus & Pricing", name: "[Ajuste] Banner Subscription; ajustar tamaño", duration: "4 hours", status: "Done", date: "31/mar/25", type: "Mejora" },
+  { team: "Plus & Pricing", name: "[Mejora] Incentive Display", duration: "3 days", status: "Done", date: "14/abr/25", type: "Mejora" },
+  { team: "Plus & Pricing", name: "[Mejora] Order Row", duration: "2 days", status: "Done", date: "03/jul/25", type: "Mejora" },
+  { team: "Plus & Pricing", name: "[Mejora] Row Interactive M", duration: "0 hours", status: "Todo", date: "17/jul/25", type: "Mejora" },
+  { team: "Plus & Pricing", name: "[Mejora] Plus (Segmented Control & Display)", duration: "1 day", status: "Done", date: "11/ago/25", type: "Mejora" },
+  { team: "Plus & Pricing", name: "[Affordability] HO & Componentización", duration: "8 weeks", status: "Done", date: "22/ago/25", type: "Mejora" },
+  { team: "Plus & Pricing", name: "[Assessment] Plus Home Auditoria", duration: "1 week", status: "Done", date: "22/sep/25", type: "Mejora" },
+  { team: "Plus & Pricing", name: "[Mejora] Footer (Transición Individual Tag)", duration: "2 weeks", status: "WIP", date: "01/dic/25", type: "Mejora" },
+
+  { team: "Fulfillment", name: "[Mejora] Order Progress Bar", duration: "3 days", status: "Done", date: "21/mar/25", type: "Mejora" },
+  { team: "Fulfillment", name: "[Mejora] Order: cambio de Tag por Highlight", duration: "4 days", status: "Done", date: "31/mar/25", type: "Mejora" },
+  { team: "Fulfillment", name: "[Ajuste] Order Card", duration: "1 week", status: "Done", date: "10/jul/25", type: "Mejora" },
+  { team: "Fulfillment", name: "[Mejora] Componente compensaciones", duration: "2 days", status: "Done", date: "21/jul/25", type: "Mejora" },
+  { team: "Fulfillment", name: "[Mejora] Live Activity (Iteraciones en PIN)", duration: "1 day", status: "Done", date: "28/jul/25", type: "Mejora" },
+  { team: "Fulfillment", name: "[TBD] Wizard Page", duration: "1 day", status: "Done", date: "28/jul/25", type: "Mejora" },
+  { team: "Fulfillment", name: "[Ajuste] Order Card & Live Activity", duration: "1 day", status: "Done", date: "08/sep/25", type: "Mejora" },
+
+  { team: "Quick Commerce", name: "[Mejora] Chip S & M (Tag)", duration: "1 week", status: "Done", date: "12/feb/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Nuevo] Colecciones M", duration: "3 weeks", status: "Done", date: "21/mar/25", type: "Nuevo" },
+  { team: "Quick Commerce", name: "[Nuevo] Iniciativa Variants (QC)", duration: "2 weeks", status: "Done", date: "21/mar/25", type: "Nuevo" },
+  { team: "Quick Commerce", name: "[Mejora] Chip S (Tag)-Impacto en Librería", duration: "1 week", status: "Done", date: "21/mar/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] Pricing en componentes", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] Chip M (Tag) Impacto en Libreria", duration: "1 week", status: "Done", date: "28/mar/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Nuevo] Colecciones L", duration: "3 weeks", status: "Done", date: "14/abr/25", type: "Nuevo" },
+  { team: "Quick Commerce", name: "[Mejora] Product Entry", duration: "2 weeks", status: "Done", date: "05/may/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] DoubleYa", duration: "2 weeks", status: "Done", date: "21/may/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Ajuste] Header Product Detail", duration: "3 days", status: "Done", date: "29/may/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] Chip Filter S", duration: "4 days", status: "Done", date: "18/jun/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] Row Informative L (DoubleYa)", duration: "2 days", status: "Done", date: "18/jun/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] Story Page (UFF)", duration: "2 days", status: "Done", date: "21/jul/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Ajuste] Product Header", duration: "1 day", status: "Done", date: "23/jul/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] Story Card (UFF)", duration: "2 days", status: "Done", date: "28/jul/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Ajuste] Product Description Pricing", duration: "1 day", status: "Done", date: "05/ago/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] Home Entry Point", duration: "4 days", status: "Done", date: "02/sep/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] Story Page", duration: "3 days", status: "Done", date: "15/sep/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] Box Message XS, S y M", duration: "2 days", status: "Done", date: "03/oct/25", type: "Mejora" },
+  { team: "Quick Commerce", name: "[Mejora] Product Card S & M-QC Nuevos", duration: "1 week, 4 days", status: "Done", date: "13/oct/25", type: "Mejora" },
+
+  { team: "Payments", name: "[Mejora] Incentive Row Voucher S", duration: "2 days", status: "Done", date: "03/jun/25", type: "Mejora" },
+  { team: "Payments", name: "[Mejora] Row Informative M (Affordability)", duration: "1 day", status: "Done", date: "12/ago/25", type: "Mejora" },
+  { team: "Payments", name: "[Ajuste] Box Interactive", duration: "3 days", status: "Done", date: "08/sep/25", type: "Mejora" },
+
+  { team: "Food", name: "[Mejora] Pricing en componentes", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
+  { team: "Food", name: "[Mejora] Reviews (More Reviews)", duration: "0 days", status: "Todo", date: "21/jul/25", type: "Mejora" },
+  { team: "Food", name: "[Mejora] Story Card (Autoplay)", duration: "2 days", status: "Done", date: "21/jul/25", type: "Mejora" },
+  { team: "Food", name: "[Ajuste] Rating", duration: "2 days", status: "Done", date: "22/ago/25", type: "Mejora" },
+  { team: "Food", name: "[Mejora] Review Card L", duration: "2 days", status: "Done", date: "08/sep/25", type: "Mejora" },
+  { team: "Food", name: "[Nuevo] Review Row L", duration: "1 day", status: "Done", date: "03/oct/25", type: "Nuevo" },
+  { team: "Food", name: "[Nuevo] Review Row L & Review User Info", duration: "3 days", status: "Done", date: "03/oct/25", type: "Nuevo" },
+  { team: "Food", name: "[TBD] Highlight Socios", duration: "0 days", status: "Todo", date: "06/oct/25", type: "Mejora" },
+];
+
+const processedData = RAW_DATA.map((item, index) => ({
+  id: index,
+  ...item,
+  hours: parseDuration(item.duration),
+  quarter: getQuarter(item.date),
+  description: `${item.name} - ${item.date}`
+}));
+
+
+// --- COMPONENTS ---
+
+const Card = ({ children, className = "" }) => (
+  // Updated for Dark Theme: Darker BG, subtle border
+  <div className={`bg-[#1e2025] rounded-xl shadow-lg border border-[#2a2d35] p-6 text-slate-200 ${className}`}>
+    {children}
+  </div>
+);
+
+const StatCard = ({ title, value, subtext, icon: Icon, colorClass }) => (
+  <Card>
+    <div className="flex items-start justify-between">
+      <div>
+        <p className="text-sm font-medium text-slate-400 uppercase tracking-wider">{title}</p>
+        <h3 className="text-3xl font-bold text-white mt-2">{value}</h3>
+        {subtext && <p className="text-xs text-slate-500 mt-1">{subtext}</p>}
+      </div>
+      {/* Icons */}
+      <div className={`p-3 rounded-lg bg-opacity-20 ${colorClass}`}>
+        <Icon size={24} />
+      </div>
+    </div>
+  </Card>
+);
+
+const Badge = ({ type }) => {
+  // Styles for Dark Theme
+  const styles = {
+    Done: "bg-emerald-900/40 text-emerald-400 border border-emerald-800",
+    WIP: "bg-amber-900/40 text-amber-400 border border-amber-800",
+    Todo: "bg-slate-700/40 text-slate-400 border border-slate-600",
+    Nuevo: "bg-[#FA0050]/20 text-[#FA0050] border border-[#FA0050]/40", // New now uses Red
+    Mejora: "bg-purple-900/40 text-purple-400 border border-purple-800"
+  };
+  return (
+    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${styles[type] || "bg-gray-800 text-gray-400"}`}>
+      {type}
+    </span>
+  );
+};
+
+const CustomRadarTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-[#0f1115] p-3 border border-slate-700 shadow-xl rounded-lg text-xs text-white">
+        <p className="font-bold text-[#FFD400] mb-2">{label}</p>
+        {payload.map((p, index) => (
+          <div key={index} className="flex items-center space-x-2 mb-1">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }}></div>
+            <span className="text-slate-400">{p.name}:</span>
+            <span className="font-mono font-medium text-white">
+              {p.name === 'Proyectos' && p.payload.realProjects}
+              {p.name === 'Horas (x10)' && p.payload.realHours}
+              {p.name === 'Completados' && p.payload.realDone}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+// --- MAIN APP COMPONENT ---
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState("Vista General");
+  const [activeQuarter, setActiveQuarter] = useState("All"); 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // --- DATA LOGIC (UNCHANGED) ---
+
+  const activeData = useMemo(() => {
+    let data = processedData;
+    if (activeTab !== "Vista General" && activeTab !== "Base de Datos") {
+      data = data.filter(p => p.team === activeTab);
+    }
+    if (activeQuarter !== "All") {
+      data = data.filter(p => p.quarter === activeQuarter);
+    }
+    return data;
+  }, [activeTab, activeQuarter]);
+
+  const metrics = useMemo(() => {
+    const totalProjects = activeData.length;
+    const totalHours = activeData.reduce((acc, curr) => acc + curr.hours, 0);
+    const avgHours = totalProjects > 0 ? (totalHours / totalProjects).toFixed(1) : 0;
+    
+    const statusCounts = activeData.reduce((acc, curr) => {
+      acc[curr.status] = (acc[curr.status] || 0) + 1;
+      return acc;
+    }, { Done: 0, WIP: 0, Todo: 0 });
+
+    const typeCounts = activeData.reduce((acc, curr) => {
+      acc[curr.type] = (acc[curr.type] || 0) + 1;
+      return acc;
+    }, { Nuevo: 0, Mejora: 0 });
+
+    return { totalProjects, totalHours, avgHours, statusCounts, typeCounts };
+  }, [activeData]);
+
+  const barChartData = useMemo(() => {
+    const data = TEAMS.map(team => {
+      let teamProjects = processedData.filter(p => p.team === team);
+      if (activeQuarter !== "All") {
+        teamProjects = teamProjects.filter(p => p.quarter === activeQuarter);
+      }
+      const done = teamProjects.filter(p => p.status === "Done").length;
+      const wip = teamProjects.filter(p => p.status === "WIP").length;
+      const todo = teamProjects.filter(p => p.status === "Todo").length;
+      
+      let shortName = team.split(' ')[0];
+      if (team === "Quick Commerce") shortName = "QC";
+      if (team === "Plus & Pricing") shortName = "Plus";
+      if (team === "Martechs & Ads") shortName = "Martech";
+      
+      return { name: shortName, full: team, Done: done, WIP: wip, Todo: todo };
+    });
+    return data;
+  }, [activeQuarter]);
+
+  const donutChartData = [
+    { name: 'Nuevos', value: metrics.typeCounts.Nuevo, color: BRAND.red }, // BRAND RED
+    { name: 'Mejoras', value: metrics.typeCounts.Mejora, color: '#a855f7' }, // Purple
+  ];
+
+  const radarData = useMemo(() => {
+    if (activeTab !== "Vista General") return [];
+
+    const rawRadar = TEAMS.map(team => {
+      let projects = processedData.filter(p => p.team === team);
+      if (activeQuarter !== "All") {
+        projects = projects.filter(p => p.quarter === activeQuarter);
+      }
+      const total = projects.length;
+      const hours = projects.reduce((sum, p) => sum + p.hours, 0);
+      const done = projects.filter(p => p.status === "Done").length;
+      
+      if (total === 0) return null;
+
+      return {
+        subject: team.split(' ')[0], 
+        realProjects: total,
+        realHours: hours,
+        realDone: done,
+      };
+    }).filter(Boolean);
+
+    const maxProjects = Math.max(...rawRadar.map(d => d.realProjects)) || 1;
+    const maxHours = Math.max(...rawRadar.map(d => d.realHours)) || 1;
+    const maxDone = Math.max(...rawRadar.map(d => d.realDone)) || 1;
+
+    return rawRadar.map(d => ({
+      ...d,
+      Proyectos: (d.realProjects / maxProjects) * 100,
+      Horas: (d.realHours / maxHours) * 100,
+      Completados: (d.realDone / maxDone) * 100,
+      full: 100
+    }));
+  }, [activeTab, activeQuarter]);
+
+  const COLORS = {
+    Done: '#10b981', // emerald-500
+    WIP: BRAND.yellow, // Brand Yellow
+    Todo: '#64748b' // Slate-500 (Moved Todo to gray so Red can be Brand)
+  };
+
+  return (
+    // DARK THEME BACKGROUND
+    <div className="flex h-screen bg-[#0f1115] font-sans text-slate-100 overflow-hidden">
+      
+      {/* SIDEBAR */}
+      <aside 
+        className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-[#1e2025] border-r border-[#2a2d35] transition-all duration-300 flex flex-col z-20`}
+      >
+        <div className="p-4 flex items-center justify-between border-b border-[#2a2d35]">
+          {isSidebarOpen && (
+            <div className="flex items-center gap-2">
+              <div className="bg-[#FA0050] p-1.5 rounded-lg">
+                 {/* Fenix Logo Placeholder */}
+                 <Flame size={20} className="text-white fill-current" /> 
+              </div>
+              <h1 className="font-bold text-lg tracking-wider text-white">
+                UX-OPS <span className="text-[#FA0050]">DASH</span>
+              </h1>
+            </div>
+          )}
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:bg-[#2a2d35] hover:text-white rounded-lg transition-colors">
+            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-3">
+          <button
+            onClick={() => setActiveTab("Vista General")}
+            className={`w-full flex items-center p-3 rounded-lg transition-all ${
+              activeTab === "Vista General" 
+                ? "bg-[#FA0050] text-white shadow-lg shadow-red-900/20" 
+                : "text-slate-400 hover:bg-[#2a2d35] hover:text-white"
+            }`}
+          >
+            <LayoutDashboard size={20} />
+            {isSidebarOpen && <span className="ml-3 font-medium">Vista General</span>}
+          </button>
+
+          <div className="pt-6 pb-2">
+            {isSidebarOpen && <p className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Equipos</p>}
+          </div>
+
+          {TEAMS.map(team => (
+            <button
+              key={team}
+              onClick={() => setActiveTab(team)}
+              className={`w-full flex items-center p-3 rounded-lg transition-all ${
+                activeTab === team 
+                  ? "bg-[#2a2d35] text-[#FA0050] border-l-4 border-[#FA0050]" 
+                  : "text-slate-400 hover:bg-[#2a2d35] hover:text-white"
+              }`}
+            >
+              <Users size={20} />
+              {isSidebarOpen && <span className="ml-3 font-medium truncate">{team}</span>}
+            </button>
+          ))}
+
+          <div className="pt-6 pb-2">
+             {isSidebarOpen && <p className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Data</p>}
+          </div>
+          
+          <button
+            onClick={() => setActiveTab("Base de Datos")}
+            className={`w-full flex items-center p-3 rounded-lg transition-all ${
+              activeTab === "Base de Datos" 
+                ? "bg-[#2a2d35] text-[#00A9E0] border-l-4 border-[#00A9E0]" 
+                : "text-slate-400 hover:bg-[#2a2d35] hover:text-white"
+            }`}
+          >
+            <Database size={20} />
+            {isSidebarOpen && <span className="ml-3 font-medium">Base de Datos</span>}
+          </button>
+        </nav>
+        
+        <div className="p-4 border-t border-[#2a2d35]">
+          {isSidebarOpen && <div className="text-xs text-slate-600 font-mono">v3.2.0 • UX-OPS</div>}
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT */}
+      <main className="flex-1 overflow-y-auto bg-[#0f1115] relative">
+        {/* Header */}
+        <header className="bg-[#1e2025]/80 backdrop-blur-md sticky top-0 z-10 px-8 py-5 flex justify-between items-center border-b border-[#2a2d35]">
+          <div>
+            <h2 className="text-2xl font-bold text-white tracking-tight">{activeTab}</h2>
+            <p className="text-sm text-slate-400 font-medium mt-1">
+              {activeTab === "Base de Datos" ? "Registro completo de todas las tareas" : "Performance Metrics & KPIs"}
+            </p>
+          </div>
+          <div className="flex items-center space-x-6">
+             {/* Quarter Selector */}
+             <div className="flex bg-[#0f1115] p-1 rounded-lg border border-[#2a2d35]">
+                {["All", "Q1", "Q2", "Q3", "Q4"].map(q => (
+                  <button
+                    key={q}
+                    onClick={() => setActiveQuarter(q)}
+                    className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                      activeQuarter === q 
+                        ? 'bg-[#2a2d35] text-[#FA0050] shadow-sm' 
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    {q}
+                  </button>
+                ))}
+             </div>
+             <div className="text-right hidden sm:block border-l border-[#2a2d35] pl-6">
+                <p className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Año Fiscal</p>
+                <p className="font-bold text-lg text-[#FA0050]">2025</p>
+             </div>
+          </div>
+        </header>
+
+        <div className="p-8 space-y-8">
+          
+          {/* CONTENT SWITCHER */}
+          
+          {activeTab === "Base de Datos" ? (
+            /* TABLE SECTION - DARK MODE */
+            <Card className="overflow-hidden border-none bg-[#1e2025]">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-white flex items-center">
+                  <span className="w-2 h-6 bg-[#00A9E0] mr-3 rounded-full"></span>
+                  Registro de Proyectos
+                </h3>
+                <div className="flex space-x-2">
+                   <span className="text-xs font-bold px-3 py-1 bg-[#2a2d35] rounded-full text-slate-300 border border-slate-700">Total: {activeData.length}</span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-[#2a2d35] sticky top-0 z-10 text-xs uppercase tracking-wider text-slate-400 font-bold">
+                    <tr>
+                      <th className="py-4 px-6 rounded-tl-lg">Proyecto</th>
+                      <th className="py-4 px-6">Equipo</th>
+                      <th className="py-4 px-6">Quarter</th>
+                      <th className="py-4 px-6">Estado</th>
+                      <th className="py-4 px-6">Tipo</th>
+                      <th className="py-4 px-6 text-right rounded-tr-lg">Tiempo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2a2d35] text-sm">
+                    {activeData.map((project) => (
+                      <tr 
+                        key={project.id} 
+                        className="hover:bg-[#2a2d35]/50 transition-colors group cursor-default"
+                      >
+                        <td className="py-4 px-6">
+                          <div className="font-semibold text-white">{project.name}</div>
+                          <div className="text-xs text-slate-500 mt-1">{project.date}</div>
+                        </td>
+                        <td className="py-4 px-6 text-slate-400">{project.team}</td>
+                        <td className="py-4 px-6">
+                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-[#0f1115] text-slate-300 border border-[#2a2d35]">
+                             {project.quarter}
+                           </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <Badge type={project.status} />
+                        </td>
+                        <td className="py-4 px-6">
+                          <Badge type={project.type} />
+                        </td>
+                        <td className="py-4 px-6 text-right font-mono text-slate-400">
+                          <span className="text-white font-bold">{project.hours}h</span> <span className="opacity-50 text-xs">({project.duration})</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : (
+            /* DASHBOARD VIEW - DARK MODE */
+            <>
+              {/* TOP KPI CARDS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard 
+                  title="Total Proyectos" 
+                  value={metrics.totalProjects} 
+                  subtext={activeQuarter === 'All' ? "Año 2025 Completo" : `En ${activeQuarter} 2025`}
+                  icon={Briefcase} 
+                  colorClass="bg-[#FA0050] text-[#FA0050]" 
+                />
+                <StatCard 
+                  title="Tiempo Trabajado" 
+                  value={`${metrics.totalHours} h`} 
+                  subtext={`~${metrics.avgHours} h/proy`}
+                  icon={Clock} 
+                  colorClass="bg-[#00A9E0] text-[#00A9E0]" 
+                />
+                <StatCard 
+                  title="Completados" 
+                  value={metrics.statusCounts.Done} 
+                  subtext={`${((metrics.statusCounts.Done / metrics.totalProjects || 0) * 100).toFixed(0)}% Tasa de éxito`}
+                  icon={CheckCircle2} 
+                  colorClass="bg-[#10b981] text-[#10b981]" 
+                />
+                <StatCard 
+                  title="En Progreso" 
+                  value={metrics.statusCounts.WIP} 
+                  subtext={`${metrics.statusCounts.Todo} Bloqueados`}
+                  icon={CircleDashed} 
+                  colorClass="bg-[#FFD400] text-[#FFD400]" 
+                />
+              </div>
+
+              {/* CHARTS SECTION */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* MAIN CHART */}
+                <Card className="lg:col-span-2 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-[#FA0050]"></div>
+                  <h3 className="text-lg font-bold text-white mb-6 pl-2">
+                    {activeTab === "Vista General" ? `Estado por Equipo (${activeQuarter})` : "Distribución de Estado"}
+                  </h3>
+                  <div className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      {activeTab === "Vista General" ? (
+                        <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+                          <XAxis 
+                            dataKey="name" 
+                            stroke="#94a3b8" 
+                            fontSize={12} 
+                            tickLine={false} 
+                            axisLine={false} 
+                            interval={0} 
+                          />
+                          <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                          <RechartsTooltip 
+                            contentStyle={{ backgroundColor: '#0f1115', borderRadius: '8px', border: '1px solid #334155', color: '#fff' }}
+                            cursor={{ fill: '#334155', opacity: 0.4 }}
+                          />
+                          <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                          <Bar dataKey="Done" stackId="a" fill={COLORS.Done} radius={[0, 0, 0, 0]} />
+                          <Bar dataKey="WIP" stackId="a" fill={COLORS.WIP} />
+                          <Bar dataKey="Todo" stackId="a" fill={COLORS.Todo} radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      ) : (
+                        <BarChart data={[{ name: 'Estado', ...metrics.statusCounts }]} layout="vertical" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#334155" />
+                           <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                           <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} hide />
+                           <RechartsTooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: '#0f1115', border: '1px solid #334155', color: '#fff' }}/>
+                           <Legend />
+                           <Bar dataKey="Done" fill={COLORS.Done} radius={[0, 4, 4, 0]} barSize={40} />
+                           <Bar dataKey="WIP" fill={COLORS.WIP} radius={[0, 4, 4, 0]} barSize={40} />
+                           <Bar dataKey="Todo" fill={COLORS.Todo} radius={[0, 4, 4, 0]} barSize={40} />
+                        </BarChart>
+                      )}
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+
+                {/* SECONDARY CHARTS */}
+                <div className="space-y-6">
+                  
+                  {/* DONUT: Improvements vs New */}
+                  <Card className="relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-[#a855f7]"></div>
+                    <h3 className="text-lg font-bold text-white mb-2 pl-2">Naturaleza del Trabajo</h3>
+                    <div className="h-48 flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={donutChartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                            stroke="none"
+                          >
+                            {donutChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <RechartsTooltip contentStyle={{ backgroundColor: '#0f1115', border: '1px solid #334155', color: '#fff' }} />
+                          <Legend verticalAlign="bottom" height={36}/>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="text-center mt-2">
+                      <span className="text-sm text-slate-400">
+                        <span className="font-bold text-white">{metrics.typeCounts.Mejora}</span> Mejoras vs <span className="font-bold text-white">{metrics.typeCounts.Nuevo}</span> Nuevos
+                      </span>
+                    </div>
+                  </Card>
+
+                  {/* RADAR: Only visible on Overview */}
+                  {activeTab === "Vista General" && (
+                    <Card className="relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-[#FA0050]"></div>
+                      <h3 className="text-lg font-bold text-white mb-2 pl-2">Comparativa Equipos</h3>
+                      <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
+                            <PolarGrid stroke="#334155" />
+                            <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                            <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                            
+                            <Radar name="Proyectos" dataKey="Proyectos" stroke="#FA0050" fill="#FA0050" fillOpacity={0.4} />
+                            <Radar name="Horas (x10)" dataKey="Horas" stroke="#6366f1" fill="#6366f1" fillOpacity={0.0} />
+                            <Radar name="Completados" dataKey="Completados" stroke="#10b981" fill="#10b981" fillOpacity={0.0} />
+                            
+                            <Legend iconType="plainline" wrapperStyle={{ fontSize: '10px' }} />
+                            <RechartsTooltip content={<CustomRadarTooltip />} />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+        </div>
+      </main>
+    </div>
+  );
+}
