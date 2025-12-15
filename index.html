@@ -1,639 +1,788 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
-} from 'recharts';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Clock, 
-  CheckCircle2, 
-  CircleDashed, 
-  AlertCircle, 
-  TrendingUp, 
-  Lightbulb, 
-  Menu,
-  X,
-  Briefcase,
-  Calendar,
-  Database,
-  Flame 
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UX-OPS DASH 2025</title>
+    <!-- External Libraries (CDNs) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* --- CSS VARIABLES & RESET --- */
+        :root {
+            --brand-yellow: #FFD400;
+            --brand-blue: #00A9E0;
+            --brand-red: #FA0050;
+            --bg-dark: #0f1115;
+            --bg-panel: #1e2025;
+            --border: #2a2d35;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
 
-// --- CONFIGURATION & CONSTANTS ---
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
 
-const TEAMS = [
-  "Martechs & Ads",
-  "Onboarding",
-  "Fulfillment",
-  "Quick Commerce",
-  "Plus & Pricing",
-  "Payments",
-  "Food"
-];
+        /* --- LAYOUT --- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s ease;
+            z-index: 20;
+        }
+        .sidebar.collapsed { width: 80px; }
+        
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            position: relative;
+            background-color: var(--bg-dark);
+        }
 
-const BRAND = {
-  yellow: '#FFD400',
-  blue: '#00A9E0',
-  red: '#FA0050',
-  dark: '#1e2025',
-  darker: '#0f1115',
-  panel: '#1e2025', // Lighter dark for cards
-  border: '#2a2d35',
-  textMain: '#f8fafc',
-  textMuted: '#94a3b8'
-};
+        /* --- COMPONENTS --- */
+        .sidebar-header {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+        .logo-area { display: flex; align-items: center; gap: 10px; }
+        .logo-icon {
+            background-color: var(--brand-red);
+            padding: 6px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        .logo-text { font-weight: 800; font-size: 18px; letter-spacing: 1px; color: #fff; }
+        .sidebar.collapsed .logo-text { display: none; }
+        
+        .nav-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            margin-bottom: 4px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 4px solid transparent;
+            font-size: 14px;
+        }
+        .nav-btn:hover { background-color: rgba(255,255,255,0.05); color: #fff; }
+        .nav-btn.active {
+            background-color: var(--border);
+            color: var(--brand-red);
+            border-left-color: var(--brand-red);
+            font-weight: 600;
+        }
+        .nav-btn.active-main {
+            background-color: var(--brand-red);
+            color: white;
+            border-left-color: transparent;
+        }
+        .nav-label { margin-left: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sidebar.collapsed .nav-label { display: none; }
+        .sidebar-section-title {
+            padding: 24px 16px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .sidebar.collapsed .sidebar-section-title { display: none; }
 
-const COLORS = {
-  Done: '#10b981', // Emerald
-  WIP: BRAND.yellow, 
-  Todo: '#64748b' // Slate
-};
+        .top-bar {
+            position: sticky;
+            top: 0;
+            background-color: rgba(30, 32, 37, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+        .page-title h2 { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+        .page-title p { font-size: 13px; color: var(--text-muted); }
 
-// --- STYLES OBJECTS (Replaces Tailwind) ---
-const styles = {
-  container: {
-    display: 'flex',
-    height: '100vh',
-    backgroundColor: BRAND.darker,
-    color: BRAND.textMain,
-    fontFamily: 'system-ui, -apple-system, sans-serif',
-    overflow: 'hidden'
-  },
-  sidebar: (isOpen) => ({
-    width: isOpen ? '260px' : '80px',
-    backgroundColor: BRAND.panel,
-    borderRight: `1px solid ${BRAND.border}`,
-    transition: 'width 0.3s ease',
-    display: 'flex',
-    flexDirection: 'column',
-    zIndex: 20
-  }),
-  sidebarHeader: {
-    padding: '20px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottom: `1px solid ${BRAND.border}`
-  },
-  logoContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px'
-  },
-  logoIcon: {
-    backgroundColor: BRAND.red,
-    padding: '6px',
-    borderRadius: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  logoText: {
-    fontWeight: '800',
-    fontSize: '18px',
-    letterSpacing: '1px',
-    color: '#fff'
-  },
-  navButton: (active) => ({
-    width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    padding: '12px',
-    marginBottom: '4px',
-    borderRadius: '8px',
-    border: 'none',
-    cursor: 'pointer',
-    backgroundColor: active === 'Vista General' ? BRAND.red : (active ? BRAND.border : 'transparent'),
-    color: active === 'Vista General' ? '#fff' : (active ? BRAND[active] : BRAND.textMuted),
-    transition: 'all 0.2s ease',
-    fontSize: '14px',
-    fontWeight: active ? '600' : '400',
-    borderLeft: active && active !== 'Vista General' ? `4px solid ${BRAND.red}` : '4px solid transparent' // Default border for alignment
-  }),
-  main: {
-    flex: 1,
-    overflowY: 'auto',
-    backgroundColor: BRAND.darker,
-    position: 'relative'
-  },
-  header: {
-    backgroundColor: 'rgba(30, 32, 37, 0.9)',
-    backdropFilter: 'blur(10px)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 10,
-    padding: '20px 30px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: `1px solid ${BRAND.border}`
-  },
-  card: {
-    backgroundColor: BRAND.panel,
-    borderRadius: '12px',
-    border: `1px solid ${BRAND.border}`,
-    padding: '24px',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)'
-  },
-  grid4: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-    gap: '24px',
-    marginBottom: '32px'
-  },
-  grid3: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-    gap: '24px'
-  },
-  badge: (type) => {
-    const base = { padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold', border: '1px solid transparent' };
-    if (type === 'Done') return { ...base, backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.3)' };
-    if (type === 'WIP') return { ...base, backgroundColor: 'rgba(255, 212, 0, 0.1)', color: BRAND.yellow, borderColor: 'rgba(255, 212, 0, 0.2)' };
-    if (type === 'Todo') return { ...base, backgroundColor: 'rgba(148, 163, 184, 0.2)', color: '#94a3b8', borderColor: 'rgba(148, 163, 184, 0.3)' };
-    if (type === 'Nuevo') return { ...base, backgroundColor: 'rgba(250, 0, 80, 0.15)', color: BRAND.red, borderColor: 'rgba(250, 0, 80, 0.3)' };
-    return { ...base, backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', borderColor: 'rgba(168, 85, 247, 0.3)' };
-  }
-};
+        .quarter-selector {
+            display: flex;
+            background-color: var(--bg-dark);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .q-btn {
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+        .q-btn.active { background-color: var(--border); color: var(--brand-red); }
 
-// --- HELPER WRAPPERS ---
-// Moved these UP before they are used in processedData to fix ReferenceError/TypeError
+        .dashboard-grid { padding: 30px; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        .stat-card {
+            background-color: var(--bg-panel);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .stat-title { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 32px; font-weight: 800; color: #fff; margin: 8px 0 4px 0; }
+        .stat-sub { font-size: 12px; color: #64748b; }
+        .stat-icon { padding: 10px; border-radius: 8px; }
 
-const parseDuration = (durationStr) => {
-  if (!durationStr) return 0;
-  let hours = 0;
-  const lower = durationStr.toLowerCase();
-  
-  if (lower.includes('week')) {
-    const match = lower.match(/(\d+)\s*week/);
-    if (match) hours += parseInt(match[1]) * 40;
-  }
-  if (lower.includes('day')) {
-    const match = lower.match(/(\d+)\s*day/);
-    if (match) hours += parseInt(match[1]) * 8;
-  }
-  if (lower.includes('hour')) {
-    const match = lower.match(/(\d+)\s*hour/);
-    if (match) hours += parseInt(match[1]);
-  }
-  return hours || 4; 
-};
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+        }
+        .card {
+            background-color: var(--bg-panel);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 24px;
+        }
+        .card.span-2 { grid-column: span 2; }
+        @media (max-width: 1000px) { .card.span-2 { grid-column: span 1; } }
 
-const getQuarter = (dateStr) => {
-  if (!dateStr) return "Q4"; 
-  const monthMap = {
-    'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
-    'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
-  };
-  const parts = dateStr.toLowerCase().split('/');
-  if (parts.length < 2) return "Q4";
-  const month = monthMap[parts[1]];
-  
-  if (month < 3) return "Q1";
-  if (month < 6) return "Q2";
-  if (month < 9) return "Q3";
-  return "Q4";
-};
+        .card-header { display: flex; align-items: center; margin-bottom: 20px; }
+        .accent-bar { width: 4px; height: 16px; background-color: var(--brand-red); margin-right: 10px; border-radius: 2px; }
+        .card-title { font-size: 16px; font-weight: 700; color: #fff; }
 
-// --- DATA PROCESSING (Identical Logic) ---
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 16px 24px; color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: 700; background-color: var(--bg-panel); }
+        td { padding: 16px 24px; border-top: 1px solid var(--border); color: #fff; }
+        tr:hover { background-color: rgba(255,255,255,0.02); }
+        
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid transparent; display: inline-block; }
+        .badge-Done { background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
+        .badge-WIP { background: rgba(255, 212, 0, 0.1); color: var(--brand-yellow); border-color: rgba(255, 212, 0, 0.2); }
+        .badge-Todo { background: rgba(148, 163, 184, 0.2); color: #94a3b8; border-color: rgba(148, 163, 184, 0.3); }
+        .badge-Nuevo { background: rgba(250, 0, 80, 0.15); color: var(--brand-red); border-color: rgba(250, 0, 80, 0.3); }
+        .badge-Mejora { background: rgba(168, 85, 247, 0.15); color: #c084fc; border-color: rgba(168, 85, 247, 0.3); }
 
-const RAW_DATA = [
-  { team: "Martechs & Ads", name: "[Mejora] Nuevo caso de uso en Priority Message", duration: "4 days", status: "Done", date: "07/mar/25", type: "Mejora" },
-  { team: "Martechs & Ads", name: "[Mejora] Service Info", duration: "2 days", status: "Done", date: "17/mar/25", type: "Mejora" },
-  { team: "Martechs & Ads", name: "[Mejora] High Value Actions", duration: "4 days", status: "Done", date: "31/mar/25", type: "Mejora" },
-  { team: "Martechs & Ads", name: "[Mejora] Banner Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
-  { team: "Martechs & Ads", name: "[Mejora] Shoppable Banner", duration: "2 weeks", status: "Done", date: "02/jun/25", type: "Mejora" },
-  { team: "Martechs & Ads", name: "[Mejora] Box Progress", duration: "1 day", status: "Done", date: "03/jul/25", type: "Mejora" },
-  { team: "Martechs & Ads", name: "[Ajuste] Incentive Message S", duration: "1 day", status: "Done", date: "31/jul/25", type: "Mejora" },
-  { team: "Martechs & Ads", name: "[Ajuste] Box Progress Indicator", duration: "1 day", status: "Done", date: "31/jul/25", type: "Mejora" },
-  { team: "Martechs & Ads", name: "[Mejora] Tag M & S [Exclusive Deals]", duration: "4 days", status: "Done", date: "31/jul/25", type: "Mejora" },
-  { team: "Martechs & Ads", name: "[Affordability] HO & Componentización", duration: "8 weeks", status: "Done", date: "22/ago/25", type: "Mejora" },
-  { team: "Martechs & Ads", name: "[Mejora] Product Card S", duration: "3 days", status: "Done", date: "06/oct/25", type: "Mejora" },
-  { team: "Onboarding", name: "[Mejora] Search Placeholder Dinámico", duration: "2 weeks", status: "Done", date: "23/abr/25", type: "Mejora" },
-  { team: "Onboarding", name: "[Mejora] Home Hero Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
-  { team: "Onboarding", name: "[Mejora] Banner Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
-  { team: "Onboarding", name: "[Mejora] Home Hero", duration: "3 weeks", status: "Done", date: "21/may/25", type: "Mejora" },
-  { team: "Onboarding", name: "[Mejora] Home Hero Agregar Prop Boolena CTA", duration: "1 day", status: "Done", date: "17/jun/25", type: "Mejora" },
-  { team: "Plus & Pricing", name: "[Mejora] Rebrand & FOMO Plus", duration: "1 week", status: "Done", date: "12/feb/25", type: "Mejora" },
-  { team: "Plus & Pricing", name: "[Mejora] Pricing en componentes (Sin Impuestos)", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
-  { team: "Plus & Pricing", name: "[Ajuste] Banner Subscription; ajustar tamaño", duration: "4 hours", status: "Done", date: "31/mar/25", type: "Mejora" },
-  { team: "Plus & Pricing", name: "[Mejora] Incentive Display", duration: "3 days", status: "Done", date: "14/abr/25", type: "Mejora" },
-  { team: "Plus & Pricing", name: "[Mejora] Order Row", duration: "2 days", status: "Done", date: "03/jul/25", type: "Mejora" },
-  { team: "Plus & Pricing", name: "[Mejora] Row Interactive M", duration: "0 hours", status: "Todo", date: "17/jul/25", type: "Mejora" },
-  { team: "Plus & Pricing", name: "[Mejora] Plus (Segmented Control & Display)", duration: "1 day", status: "Done", date: "11/ago/25", type: "Mejora" },
-  { team: "Plus & Pricing", name: "[Affordability] HO & Componentización", duration: "8 weeks", status: "Done", date: "22/ago/25", type: "Mejora" },
-  { team: "Plus & Pricing", name: "[Assessment] Plus Home Auditoria", duration: "1 week", status: "Done", date: "22/sep/25", type: "Mejora" },
-  { team: "Plus & Pricing", name: "[Mejora] Footer (Transición Individual Tag)", duration: "2 weeks", status: "WIP", date: "01/dic/25", type: "Mejora" },
-  { team: "Fulfillment", name: "[Mejora] Order Progress Bar", duration: "3 days", status: "Done", date: "21/mar/25", type: "Mejora" },
-  { team: "Fulfillment", name: "[Mejora] Order: cambio de Tag por Highlight", duration: "4 days", status: "Done", date: "31/mar/25", type: "Mejora" },
-  { team: "Fulfillment", name: "[Ajuste] Order Card", duration: "1 week", status: "Done", date: "10/jul/25", type: "Mejora" },
-  { team: "Fulfillment", name: "[Mejora] Componente compensaciones", duration: "2 days", status: "Done", date: "21/jul/25", type: "Mejora" },
-  { team: "Fulfillment", name: "[Mejora] Live Activity (Iteraciones en PIN)", duration: "1 day", status: "Done", date: "28/jul/25", type: "Mejora" },
-  { team: "Fulfillment", name: "[TBD] Wizard Page", duration: "1 day", status: "Done", date: "28/jul/25", type: "Mejora" },
-  { team: "Fulfillment", name: "[Ajuste] Order Card & Live Activity", duration: "1 day", status: "Done", date: "08/sep/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Chip S & M (Tag)", duration: "1 week", status: "Done", date: "12/feb/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Nuevo] Colecciones M", duration: "3 weeks", status: "Done", date: "21/mar/25", type: "Nuevo" },
-  { team: "Quick Commerce", name: "[Nuevo] Iniciativa Variants (QC)", duration: "2 weeks", status: "Done", date: "21/mar/25", type: "Nuevo" },
-  { team: "Quick Commerce", name: "[Mejora] Chip S (Tag)-Impacto en Librería", duration: "1 week", status: "Done", date: "21/mar/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Pricing en componentes", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Chip M (Tag) Impacto en Libreria", duration: "1 week", status: "Done", date: "28/mar/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Nuevo] Colecciones L", duration: "3 weeks", status: "Done", date: "14/abr/25", type: "Nuevo" },
-  { team: "Quick Commerce", name: "[Mejora] Product Entry", duration: "2 weeks", status: "Done", date: "05/may/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] DoubleYa", duration: "2 weeks", status: "Done", date: "21/may/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Ajuste] Header Product Detail", duration: "3 days", status: "Done", date: "29/may/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Chip Filter S", duration: "4 days", status: "Done", date: "18/jun/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Row Informative L (DoubleYa)", duration: "2 days", status: "Done", date: "18/jun/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Story Page (UFF)", duration: "2 days", status: "Done", date: "21/jul/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Ajuste] Product Header", duration: "1 day", status: "Done", date: "23/jul/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Story Card (UFF)", duration: "2 days", status: "Done", date: "28/jul/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Ajuste] Product Description Pricing", duration: "1 day", status: "Done", date: "05/ago/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Home Entry Point", duration: "4 days", status: "Done", date: "02/sep/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Story Page", duration: "3 days", status: "Done", date: "15/sep/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Box Message XS, S y M", duration: "2 days", status: "Done", date: "03/oct/25", type: "Mejora" },
-  { team: "Quick Commerce", name: "[Mejora] Product Card S & M-QC Nuevos", duration: "1 week, 4 days", status: "Done", date: "13/oct/25", type: "Mejora" },
-  { team: "Payments", name: "[Mejora] Incentive Row Voucher S", duration: "2 days", status: "Done", date: "03/jun/25", type: "Mejora" },
-  { team: "Payments", name: "[Mejora] Row Informative M (Affordability)", duration: "1 day", status: "Done", date: "12/ago/25", type: "Mejora" },
-  { team: "Payments", name: "[Ajuste] Box Interactive", duration: "3 days", status: "Done", date: "08/sep/25", type: "Mejora" },
-  { team: "Food", name: "[Mejora] Pricing en componentes", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
-  { team: "Food", name: "[Mejora] Reviews (More Reviews)", duration: "0 days", status: "Todo", date: "21/jul/25", type: "Mejora" },
-  { team: "Food", name: "[Mejora] Story Card (Autoplay)", duration: "2 days", status: "Done", date: "21/jul/25", type: "Mejora" },
-  { team: "Food", name: "[Ajuste] Rating", duration: "2 days", status: "Done", date: "22/ago/25", type: "Mejora" },
-  { team: "Food", name: "[Mejora] Review Card L", duration: "2 days", status: "Done", date: "08/sep/25", type: "Mejora" },
-  { team: "Food", name: "[Nuevo] Review Row L", duration: "1 day", status: "Done", date: "03/oct/25", type: "Nuevo" },
-  { team: "Food", name: "[Nuevo] Review Row L & Review User Info", duration: "3 days", status: "Done", date: "03/oct/25", type: "Nuevo" },
-  { team: "Food", name: "[TBD] Highlight Socios", duration: "0 days", status: "Todo", date: "06/oct/25", type: "Mejora" },
-];
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
 
-const processedData = RAW_DATA.map((item, index) => ({
-  id: index,
-  ...item,
-  hours: parseDuration(item.duration),
-  quarter: getQuarter(item.date),
-  description: `${item.name} - ${item.date}`
-}));
-
-// --- COMPONENTS WITH INLINE STYLES ---
-
-const StatCard = ({ title, value, subtext, icon: Icon, color }) => (
-  <div style={styles.card}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-      <div>
-        <p style={{ fontSize: '12px', fontWeight: '600', color: BRAND.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</p>
-        <h3 style={{ fontSize: '32px', fontWeight: '800', color: '#fff', margin: '8px 0 4px 0' }}>{value}</h3>
-        {subtext && <p style={{ fontSize: '12px', color: '#64748b' }}>{subtext}</p>}
-      </div>
-      <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: `${color}20`, color: color }}>
-        <Icon size={24} />
-      </div>
-    </div>
-  </div>
-);
-
-const CustomRadarTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div style={{ backgroundColor: BRAND.darker, padding: '12px', border: `1px solid ${BRAND.border}`, borderRadius: '8px', color: '#fff', fontSize: '12px' }}>
-        <p style={{ fontWeight: 'bold', color: BRAND.yellow, marginBottom: '8px' }}>{label}</p>
-        {payload.map((p, index) => (
-          <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: p.color }}></div>
-            <span style={{ color: BRAND.textMuted }}>{p.name}:</span>
-            <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
-              {p.name === 'Proyectos' && p.payload.realProjects}
-              {p.name === 'Horas (x10)' && p.payload.realHours}
-              {p.name === 'Completados' && p.payload.realDone}
-            </span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
-
-// --- MAIN APP ---
-
-export default function App() {
-  const [activeTab, setActiveTab] = useState("Vista General");
-  const [activeQuarter, setActiveQuarter] = useState("All"); 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  // Data processing logic
-  const activeData = useMemo(() => {
-    let data = processedData;
-    if (activeTab !== "Vista General" && activeTab !== "Base de Datos") {
-      data = data.filter(p => p.team === activeTab);
-    }
-    if (activeQuarter !== "All") {
-      data = data.filter(p => p.quarter === activeQuarter);
-    }
-    return data;
-  }, [activeTab, activeQuarter]);
-
-  const metrics = useMemo(() => {
-    const totalProjects = activeData.length;
-    const totalHours = activeData.reduce((acc, curr) => acc + curr.hours, 0);
-    const avgHours = totalProjects > 0 ? (totalHours / totalProjects).toFixed(1) : 0;
-    const statusCounts = activeData.reduce((acc, curr) => {
-      acc[curr.status] = (acc[curr.status] || 0) + 1;
-      return acc;
-    }, { Done: 0, WIP: 0, Todo: 0 });
-    const typeCounts = activeData.reduce((acc, curr) => {
-      acc[curr.type] = (acc[curr.type] || 0) + 1;
-      return acc;
-    }, { Nuevo: 0, Mejora: 0 });
-    return { totalProjects, totalHours, avgHours, statusCounts, typeCounts };
-  }, [activeData]);
-
-  const barChartData = useMemo(() => {
-    const data = TEAMS.map(team => {
-      let teamProjects = processedData.filter(p => p.team === team);
-      if (activeQuarter !== "All") teamProjects = teamProjects.filter(p => p.quarter === activeQuarter);
-      const done = teamProjects.filter(p => p.status === "Done").length;
-      const wip = teamProjects.filter(p => p.status === "WIP").length;
-      const todo = teamProjects.filter(p => p.status === "Todo").length;
-      let shortName = team.split(' ')[0];
-      if (team === "Quick Commerce") shortName = "QC";
-      if (team === "Plus & Pricing") shortName = "Plus";
-      if (team === "Martechs & Ads") shortName = "Martech";
-      return { name: shortName, full: team, Done: done, WIP: wip, Todo: todo };
-    });
-    return data;
-  }, [activeQuarter]);
-
-  const donutChartData = [
-    { name: 'Nuevos', value: metrics.typeCounts.Nuevo, color: BRAND.red },
-    { name: 'Mejoras', value: metrics.typeCounts.Mejora, color: '#a855f7' },
-  ];
-
-  const radarData = useMemo(() => {
-    if (activeTab !== "Vista General") return [];
-    const rawRadar = TEAMS.map(team => {
-      let projects = processedData.filter(p => p.team === team);
-      if (activeQuarter !== "All") projects = projects.filter(p => p.quarter === activeQuarter);
-      const total = projects.length;
-      const hours = projects.reduce((sum, p) => sum + p.hours, 0);
-      const done = projects.filter(p => p.status === "Done").length;
-      if (total === 0) return null;
-      return { subject: team.split(' ')[0], realProjects: total, realHours: hours, realDone: done };
-    }).filter(Boolean);
-    const maxProjects = Math.max(...rawRadar.map(d => d.realProjects)) || 1;
-    const maxHours = Math.max(...rawRadar.map(d => d.realHours)) || 1;
-    const maxDone = Math.max(...rawRadar.map(d => d.realDone)) || 1;
-    return rawRadar.map(d => ({
-      ...d,
-      Proyectos: (d.realProjects / maxProjects) * 100,
-      Horas: (d.realHours / maxHours) * 100,
-      Completados: (d.realDone / maxDone) * 100,
-      full: 100
-    }));
-  }, [activeTab, activeQuarter]);
-
-  // --- RENDER ---
-
-  return (
-    <div style={styles.container}>
-      {/* SIDEBAR */}
-      <aside style={styles.sidebar(isSidebarOpen)}>
-        <div style={styles.sidebarHeader}>
-          {isSidebarOpen && (
-            <div style={styles.logoContainer}>
-              <div style={styles.logoIcon}>
-                <Flame size={20} color="#fff" fill="currentColor" />
-              </div>
-              <div style={styles.logoText}>
-                UX-OPS <span style={{ color: BRAND.red }}>DASH</span>
-              </div>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-area">
+                <div class="logo-icon"><i data-lucide="flame"></i></div>
+                <div class="logo-text">UX-OPS <span style="color: var(--brand-red);">DASH</span></div>
             </div>
-          )}
-          <button 
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-            style={{ background: 'none', border: 'none', color: BRAND.textMuted, cursor: 'pointer', marginLeft: isSidebarOpen ? '0' : 'auto' }}
-          >
-            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-
-        <nav style={{ padding: '16px', overflowY: 'auto' }}>
-          <button 
-            onClick={() => setActiveTab("Vista General")}
-            style={{ 
-              ...styles.navButton(activeTab === 'Vista General' ? 'Vista General' : false),
-              borderLeft: activeTab === 'Vista General' ? 'none' : '4px solid transparent' // Special case for main button styling
-            }}
-          >
-            <LayoutDashboard size={20} style={{ marginRight: isSidebarOpen ? '12px' : '0' }} />
-            {isSidebarOpen && "Vista General"}
-          </button>
-
-          {isSidebarOpen && <div style={{ padding: '24px 12px 8px 12px', fontSize: '10px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Equipos</div>}
-
-          {TEAMS.map(team => (
-            <button
-              key={team}
-              onClick={() => setActiveTab(team)}
-              style={styles.navButton(activeTab === team ? team : false)}
-            >
-              <Users size={20} style={{ marginRight: isSidebarOpen ? '12px' : '0', color: activeTab === team ? BRAND.red : 'inherit' }} />
-              {isSidebarOpen && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team}</span>}
+            <button onclick="toggleSidebar()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">
+                <i data-lucide="menu"></i>
             </button>
-          ))}
-
-          {isSidebarOpen && <div style={{ padding: '24px 12px 8px 12px', fontSize: '10px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Data</div>}
-          
-          <button
-            onClick={() => setActiveTab("Base de Datos")}
-            style={{
-               ...styles.navButton(activeTab === 'Base de Datos' ? 'Base de Datos' : false),
-               borderLeft: activeTab === 'Base de Datos' ? `4px solid ${BRAND.blue}` : '4px solid transparent',
-               color: activeTab === 'Base de Datos' ? BRAND.blue : BRAND.textMuted
-            }}
-          >
-            <Database size={20} style={{ marginRight: isSidebarOpen ? '12px' : '0' }} />
-            {isSidebarOpen && "Base de Datos"}
-          </button>
-        </nav>
-      </aside>
-
-      {/* MAIN CONTENT */}
-      <main style={styles.main}>
-        <header style={styles.header}>
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: '800', margin: 0, color: '#fff' }}>{activeTab}</h2>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0' }}>
-              {activeTab === "Base de Datos" ? "Registro completo de todas las tareas" : "Performance Metrics & KPIs"}
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div style={{ display: 'flex', backgroundColor: BRAND.darker, padding: '4px', borderRadius: '8px', border: `1px solid ${BRAND.border}` }}>
-              {["All", "Q1", "Q2", "Q3", "Q4"].map(q => (
-                <button
-                  key={q}
-                  onClick={() => setActiveQuarter(q)}
-                  style={{
-                    padding: '6px 16px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    border: 'none',
-                    cursor: 'pointer',
-                    backgroundColor: activeQuarter === q ? BRAND.border : 'transparent',
-                    color: activeQuarter === q ? BRAND.red : '#64748b',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
-            <div style={{ borderLeft: `1px solid ${BRAND.border}`, paddingLeft: '20px', display: 'none', '@media (min-width: 768px)': { display: 'block' } }}>
-               <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', display: 'block', textTransform: 'uppercase' }}>Año Fiscal</span>
-               <span style={{ fontSize: '18px', fontWeight: '800', color: BRAND.red }}>2025</span>
-            </div>
-          </div>
-        </header>
-
-        <div style={{ padding: '30px' }}>
-          {activeTab === "Base de Datos" ? (
-            <div style={{ ...styles.card, border: 'none', backgroundColor: 'transparent', padding: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center' }}>
-                  <span style={{ width: '6px', height: '20px', backgroundColor: BRAND.blue, borderRadius: '4px', marginRight: '10px' }}></span>
-                  Registro de Proyectos
-                </h3>
-                <span style={{ fontSize: '12px', fontWeight: 'bold', padding: '4px 12px', backgroundColor: BRAND.panel, borderRadius: '20px', border: `1px solid ${BRAND.border}`, color: '#cbd5e1' }}>
-                  Total: {activeData.length}
-                </span>
-              </div>
-              <div style={{ overflowX: 'auto', borderRadius: '12px', border: `1px solid ${BRAND.border}` }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                  <thead style={{ backgroundColor: BRAND.panel }}>
-                    <tr>
-                      {['Proyecto', 'Equipo', 'Quarter', 'Estado', 'Tipo', 'Tiempo'].map(h => (
-                        <th key={h} style={{ padding: '16px 24px', color: '#94a3b8', textTransform: 'uppercase', fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeData.map((project, i) => (
-                      <tr key={project.id} style={{ borderTop: `1px solid ${BRAND.border}`, backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
-                        <td style={{ padding: '16px 24px' }}>
-                          <div style={{ fontWeight: '600', color: '#fff' }}>{project.name}</div>
-                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{project.date}</div>
-                        </td>
-                        <td style={{ padding: '16px 24px', color: '#94a3b8' }}>{project.team}</td>
-                        <td style={{ padding: '16px 24px' }}>
-                          <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: BRAND.darker, border: `1px solid ${BRAND.border}`, color: '#cbd5e1', fontSize: '11px', fontWeight: '700' }}>{project.quarter}</span>
-                        </td>
-                        <td style={{ padding: '16px 24px' }}><span style={styles.badge(project.status)}>{project.status}</span></td>
-                        <td style={{ padding: '16px 24px' }}><span style={styles.badge(project.type)}>{project.type}</span></td>
-                        <td style={{ padding: '16px 24px', fontFamily: 'monospace', color: '#fff', fontWeight: '600' }}>{project.hours}h</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* KPIs */}
-              <div style={styles.grid4}>
-                <StatCard title="Total Proyectos" value={metrics.totalProjects} subtext="Año 2025 Completo" icon={Briefcase} color={BRAND.red} />
-                <StatCard title="Tiempo Trabajado" value={`${metrics.totalHours} h`} subtext={`~${metrics.avgHours} h/proy`} icon={Clock} color={BRAND.blue} />
-                <StatCard title="Completados" value={metrics.statusCounts.Done} subtext="Tasa de éxito global" icon={CheckCircle2} color={COLORS.Done} />
-                <StatCard title="En Progreso" value={metrics.statusCounts.WIP} subtext="Bloqueados / Todo" icon={CircleDashed} color={BRAND.yellow} />
-              </div>
-
-              {/* CHARTS */}
-              <div style={styles.grid3}>
-                {/* BAR CHART */}
-                <div style={{ ...styles.card, gridColumn: 'span 2' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '24px', display: 'flex', alignItems: 'center' }}>
-                    <span style={{ width: '4px', height: '16px', backgroundColor: BRAND.red, marginRight: '10px' }}></span>
-                    {activeTab === "Vista General" ? `Carga por Equipo (${activeQuarter})` : "Distribución"}
-                  </h3>
-                  <div style={{ height: '300px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      {activeTab === "Vista General" ? (
-                        <BarChart data={barChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={BRAND.border} />
-                          <XAxis dataKey="name" stroke={BRAND.textMuted} fontSize={12} tickLine={false} axisLine={false} />
-                          <YAxis stroke={BRAND.textMuted} fontSize={12} tickLine={false} axisLine={false} />
-                          <RechartsTooltip contentStyle={{ backgroundColor: BRAND.darker, borderColor: BRAND.border, color: '#fff', borderRadius: '8px' }} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-                          <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                          <Bar dataKey="Done" stackId="a" fill={COLORS.Done} radius={[0, 0, 0, 0]} />
-                          <Bar dataKey="WIP" stackId="a" fill={COLORS.WIP} />
-                          <Bar dataKey="Todo" stackId="a" fill={COLORS.Todo} radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      ) : (
-                        <BarChart data={[{ name: 'Estado', ...metrics.statusCounts }]} layout="vertical">
-                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={BRAND.border} />
-                           <XAxis type="number" stroke={BRAND.textMuted} fontSize={12} hide />
-                           <YAxis dataKey="name" type="category" hide />
-                           <RechartsTooltip contentStyle={{ backgroundColor: BRAND.darker, borderColor: BRAND.border }} cursor={{ fill: 'transparent' }}/>
-                           <Legend />
-                           <Bar dataKey="Done" fill={COLORS.Done} radius={[0, 4, 4, 0]} barSize={60} label={{ position: 'right', fill: '#fff' }} />
-                           <Bar dataKey="WIP" fill={COLORS.WIP} radius={[0, 4, 4, 0]} barSize={60} label={{ position: 'right', fill: '#fff' }} />
-                           <Bar dataKey="Todo" fill={COLORS.Todo} radius={[0, 4, 4, 0]} barSize={60} label={{ position: 'right', fill: '#fff' }} />
-                        </BarChart>
-                      )}
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  {/* DONUT */}
-                  <div style={styles.card}>
-                    <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '10px' }}>Naturaleza</h3>
-                    <div style={{ height: '180px' }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={donutChartData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={50}
-                            outerRadius={70}
-                            paddingAngle={5}
-                            dataKey="value"
-                            stroke="none"
-                          >
-                            {donutChartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <RechartsTooltip contentStyle={{ backgroundColor: BRAND.darker, borderColor: BRAND.border, color: '#fff', borderRadius: '8px' }} />
-                          <Legend verticalAlign="bottom" height={36}/>
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* RADAR */}
-                  {activeTab === "Vista General" && (
-                    <div style={styles.card}>
-                      <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '10px' }}>Radar</h3>
-                      <div style={{ height: '180px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
-                            <PolarGrid stroke={BRAND.border} />
-                            <PolarAngleAxis dataKey="subject" tick={{ fill: BRAND.textMuted, fontSize: 10 }} />
-                            <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                            <Radar name="Proyectos" dataKey="Proyectos" stroke={BRAND.red} fill={BRAND.red} fillOpacity={0.3} />
-                            <Radar name="Horas" dataKey="Horas" stroke={BRAND.blue} fill={BRAND.blue} fillOpacity={0.0} />
-                            <RechartsTooltip content={<CustomRadarTooltip />} />
-                          </RadarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
         </div>
-      </main>
-    </div>
-  );
-}
+        <nav style="padding: 16px; overflow-y: auto;">
+            <!-- ID added for JS selection -->
+            <button class="nav-btn active-main" id="btn-general" onclick="switchTab('Vista General')">
+                <i data-lucide="layout-dashboard"></i>
+                <span class="nav-label">Vista General</span>
+            </button>
+
+            <div class="sidebar-section-title">Equipos</div>
+            <div id="team-nav-container">
+                <!-- Team buttons injected by JS -->
+            </div>
+
+            <div class="sidebar-section-title">Data</div>
+            <button class="nav-btn" onclick="switchTab('Base de Datos')" id="btn-db">
+                <i data-lucide="database"></i>
+                <span class="nav-label">Base de Datos</span>
+            </button>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="top-bar">
+            <div class="page-title">
+                <h2 id="page-title-text">Vista General</h2>
+                <p id="page-subtitle-text">Performance Metrics & KPIs</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <div class="quarter-selector" id="quarter-selector">
+                    <button class="q-btn" onclick="setQuarter('All')">All</button>
+                    <button class="q-btn" onclick="setQuarter('Q1')">Q1</button>
+                    <button class="q-btn" onclick="setQuarter('Q2')">Q2</button>
+                    <button class="q-btn" onclick="setQuarter('Q3')">Q3</button>
+                    <button class="q-btn active" onclick="setQuarter('Q4')">Q4</button>
+                </div>
+                <div style="border-left: 1px solid var(--border); padding-left: 20px;">
+                    <span style="font-size: 10px; color: #64748b; font-weight: 700; display: block; text-transform: uppercase;">Año Fiscal</span>
+                    <span style="font-size: 18px; font-weight: 800; color: var(--brand-red);">2025</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid" id="dashboard-view">
+            <!-- KPIs -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div>
+                        <div class="stat-title">Total Proyectos</div>
+                        <div class="stat-value" id="kpi-total">0</div>
+                        <div class="stat-sub">En periodo seleccionado</div>
+                    </div>
+                    <div class="stat-icon" style="background: rgba(250, 0, 80, 0.2); color: var(--brand-red);"><i data-lucide="briefcase"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div>
+                        <div class="stat-title">Tiempo Trabajado</div>
+                        <div class="stat-value" id="kpi-hours">0 h</div>
+                        <div class="stat-sub" id="kpi-avg">~0 h/proy</div>
+                    </div>
+                    <div class="stat-icon" style="background: rgba(0, 169, 224, 0.2); color: var(--brand-blue);"><i data-lucide="clock"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div>
+                        <div class="stat-title">Completados</div>
+                        <div class="stat-value" id="kpi-done">0</div>
+                        <div class="stat-sub">Tasa de éxito</div>
+                    </div>
+                    <div class="stat-icon" style="background: rgba(16, 185, 129, 0.2); color: var(--success);"><i data-lucide="check-circle-2"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div>
+                        <div class="stat-title">En Progreso</div>
+                        <div class="stat-value" id="kpi-wip">0</div>
+                        <div class="stat-sub">Bloqueados / Todo</div>
+                    </div>
+                    <div class="stat-icon" style="background: rgba(255, 212, 0, 0.2); color: var(--brand-yellow);"><i data-lucide="circle-dashed"></i></div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+                <div class="card span-2">
+                    <div class="card-header">
+                        <div class="accent-bar"></div>
+                        <div class="card-title" id="chart-main-title">Estado por Equipo</div>
+                    </div>
+                    <div style="height: 400px; position: relative;"> <!-- Increased height for horizontal layout -->
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                </div>
+                
+                <div style="display: flex; flexDirection: column; gap: 24px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="accent-bar" style="background-color: #a855f7;"></div>
+                            <div class="card-title">Naturaleza</div>
+                        </div>
+                        <div style="height: 200px; position: relative; display: flex; justify-content: center;">
+                            <canvas id="donutChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card" id="radar-container">
+                        <div class="card-header">
+                            <div class="accent-bar" style="background-color: var(--brand-blue);"></div>
+                            <div class="card-title">Comparativa (Normalizada)</div>
+                        </div>
+                        <div style="height: 300px; position: relative; display: flex; justify-content: center;"> <!-- Increased height for radar -->
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid hidden" id="db-view">
+            <div class="card">
+                <div class="card-header">
+                    <div class="accent-bar" style="background-color: var(--brand-blue);"></div>
+                    <div class="card-title">Registro de Proyectos</div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="db-table">
+                        <thead>
+                            <tr>
+                                <th>Proyecto</th>
+                                <th>Equipo</th>
+                                <th>Quarter</th>
+                                <th>Estado</th>
+                                <th>Tipo</th>
+                                <th>Tiempo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Rows injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- HELPER FUNCTIONS (Moved to top to prevent ReferenceError) ---
+        const parseDuration = (str) => {
+            if (!str) return 0;
+            let hours = 0;
+            const lower = str.toLowerCase();
+            if (lower.includes('week')) hours += parseInt(lower.match(/(\d+)\s*week/)?.[1] || 0) * 40;
+            if (lower.includes('day')) hours += parseInt(lower.match(/(\d+)\s*day/)?.[1] || 0) * 8;
+            if (lower.includes('hour')) hours += parseInt(lower.match(/(\d+)\s*hour/)?.[1] || 0);
+            return hours || 4;
+        };
+
+        const getQuarter = (dateStr) => {
+            if (!dateStr) return "Q4"; 
+            const monthMap = { 'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5, 'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11 };
+            const parts = dateStr.toLowerCase().split('/');
+            const month = parts.length > 1 ? monthMap[parts[1]] : 9; // Default to Oct if parse fails
+            if (month < 3) return "Q1";
+            if (month < 6) return "Q2";
+            if (month < 9) return "Q3";
+            return "Q4";
+        };
+
+        // --- DATA & CONSTANTS ---
+        const TEAMS = ["Martechs & Ads", "Onboarding", "Fulfillment", "Quick Commerce", "Plus & Pricing", "Payments", "Food"];
+        
+        // Raw Data
+        const RAW_DATA = [
+            { team: "Martechs & Ads", name: "[Mejora] Nuevo caso de uso en Priority Message", duration: "4 days", status: "Done", date: "07/mar/25", type: "Mejora" },
+            { team: "Martechs & Ads", name: "[Mejora] Service Info", duration: "2 days", status: "Done", date: "17/mar/25", type: "Mejora" },
+            { team: "Martechs & Ads", name: "[Mejora] High Value Actions", duration: "4 days", status: "Done", date: "31/mar/25", type: "Mejora" },
+            { team: "Martechs & Ads", name: "[Mejora] Banner Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
+            { team: "Martechs & Ads", name: "[Mejora] Shoppable Banner", duration: "2 weeks", status: "Done", date: "02/jun/25", type: "Mejora" },
+            { team: "Martechs & Ads", name: "[Mejora] Box Progress", duration: "1 day", status: "Done", date: "03/jul/25", type: "Mejora" },
+            { team: "Martechs & Ads", name: "[Ajuste] Incentive Message S", duration: "1 day", status: "Done", date: "31/jul/25", type: "Mejora" },
+            { team: "Martechs & Ads", name: "[Ajuste] Box Progress Indicator", duration: "1 day", status: "Done", date: "31/jul/25", type: "Mejora" },
+            { team: "Martechs & Ads", name: "[Mejora] Tag M & S [Exclusive Deals]", duration: "4 days", status: "Done", date: "31/jul/25", type: "Mejora" },
+            { team: "Martechs & Ads", name: "[Affordability] HO & Componentización", duration: "8 weeks", status: "Done", date: "22/ago/25", type: "Mejora" },
+            { team: "Martechs & Ads", name: "[Mejora] Product Card S", duration: "3 days", status: "Done", date: "06/oct/25", type: "Mejora" },
+            { team: "Onboarding", name: "[Mejora] Search Placeholder Dinámico", duration: "2 weeks", status: "Done", date: "23/abr/25", type: "Mejora" },
+            { team: "Onboarding", name: "[Mejora] Home Hero Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
+            { team: "Onboarding", name: "[Mejora] Banner Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
+            { team: "Onboarding", name: "[Mejora] Home Hero", duration: "3 weeks", status: "Done", date: "21/may/25", type: "Mejora" },
+            { team: "Onboarding", name: "[Mejora] Home Hero Agregar Prop Boolena CTA", duration: "1 day", status: "Done", date: "17/jun/25", type: "Mejora" },
+            { team: "Plus & Pricing", name: "[Mejora] Rebrand & FOMO Plus", duration: "1 week", status: "Done", date: "12/feb/25", type: "Mejora" },
+            { team: "Plus & Pricing", name: "[Mejora] Pricing en componentes (Sin Impuestos)", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
+            { team: "Plus & Pricing", name: "[Ajuste] Banner Subscription; ajustar tamaño", duration: "4 hours", status: "Done", date: "31/mar/25", type: "Mejora" },
+            { team: "Plus & Pricing", name: "[Mejora] Incentive Display", duration: "3 days", status: "Done", date: "14/abr/25", type: "Mejora" },
+            { team: "Plus & Pricing", name: "[Mejora] Order Row", duration: "2 days", status: "Done", date: "03/jul/25", type: "Mejora" },
+            { team: "Plus & Pricing", name: "[Mejora] Row Interactive M", duration: "0 hours", status: "Todo", date: "17/jul/25", type: "Mejora" },
+            { team: "Plus & Pricing", name: "[Mejora] Plus (Segmented Control & Display)", duration: "1 day", status: "Done", date: "11/ago/25", type: "Mejora" },
+            { team: "Plus & Pricing", name: "[Affordability] HO & Componentización", duration: "8 weeks", status: "Done", date: "22/ago/25", type: "Mejora" },
+            { team: "Plus & Pricing", name: "[Assessment] Plus Home Auditoria", duration: "1 week", status: "Done", date: "22/sep/25", type: "Mejora" },
+            { team: "Plus & Pricing", name: "[Mejora] Footer (Transición Individual Tag)", duration: "2 weeks", status: "WIP", date: "01/dic/25", type: "Mejora" },
+            { team: "Fulfillment", name: "[Mejora] Order Progress Bar", duration: "3 days", status: "Done", date: "21/mar/25", type: "Mejora" },
+            { team: "Fulfillment", name: "[Mejora] Order: cambio de Tag por Highlight", duration: "4 days", status: "Done", date: "31/mar/25", type: "Mejora" },
+            { team: "Fulfillment", name: "[Ajuste] Order Card", duration: "1 week", status: "Done", date: "10/jul/25", type: "Mejora" },
+            { team: "Fulfillment", name: "[Mejora] Componente compensaciones", duration: "2 days", status: "Done", date: "21/jul/25", type: "Mejora" },
+            { team: "Fulfillment", name: "[Mejora] Live Activity (Iteraciones en PIN)", duration: "1 day", status: "Done", date: "28/jul/25", type: "Mejora" },
+            { team: "Fulfillment", name: "[TBD] Wizard Page", duration: "1 day", status: "Done", date: "28/jul/25", type: "Mejora" },
+            { team: "Fulfillment", name: "[Ajuste] Order Card & Live Activity", duration: "1 day", status: "Done", date: "08/sep/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Chip S & M (Tag)", duration: "1 week", status: "Done", date: "12/feb/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Nuevo] Colecciones M", duration: "3 weeks", status: "Done", date: "21/mar/25", type: "Nuevo" },
+            { team: "Quick Commerce", name: "[Nuevo] Iniciativa Variants (QC)", duration: "2 weeks", status: "Done", date: "21/mar/25", type: "Nuevo" },
+            { team: "Quick Commerce", name: "[Mejora] Chip S (Tag)-Impacto en Librería", duration: "1 week", status: "Done", date: "21/mar/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Pricing en componentes", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Chip M (Tag) Impacto en Libreria", duration: "1 week", status: "Done", date: "28/mar/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Nuevo] Colecciones L", duration: "3 weeks", status: "Done", date: "14/abr/25", type: "Nuevo" },
+            { team: "Quick Commerce", name: "[Mejora] Product Entry", duration: "2 weeks", status: "Done", date: "05/may/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] DoubleYa", duration: "2 weeks", status: "Done", date: "21/may/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Ajuste] Header Product Detail", duration: "3 days", status: "Done", date: "29/may/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Chip Filter S", duration: "4 days", status: "Done", date: "18/jun/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Row Informative L (DoubleYa)", duration: "2 days", status: "Done", date: "18/jun/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Story Page (UFF)", duration: "2 days", status: "Done", date: "21/jul/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Ajuste] Product Header", duration: "1 day", status: "Done", date: "23/jul/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Story Card (UFF)", duration: "2 days", status: "Done", date: "28/jul/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Ajuste] Product Description Pricing", duration: "1 day", status: "Done", date: "05/ago/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Home Entry Point", duration: "4 days", status: "Done", date: "02/sep/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Story Page", duration: "3 days", status: "Done", date: "15/sep/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Box Message XS, S y M", duration: "2 days", status: "Done", date: "03/oct/25", type: "Mejora" },
+            { team: "Quick Commerce", name: "[Mejora] Product Card S & M-QC Nuevos", duration: "1 week, 4 days", status: "Done", date: "13/oct/25", type: "Mejora" },
+            { team: "Payments", name: "[Mejora] Incentive Row Voucher S", duration: "2 days", status: "Done", date: "03/jun/25", type: "Mejora" },
+            { team: "Payments", name: "[Mejora] Row Informative M (Affordability)", duration: "1 day", status: "Done", date: "12/ago/25", type: "Mejora" },
+            { team: "Payments", name: "[Ajuste] Box Interactive", duration: "3 days", status: "Done", date: "08/sep/25", type: "Mejora" },
+            { team: "Food", name: "[Mejora] Pricing en componentes", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
+            { team: "Food", name: "[Mejora] Reviews (More Reviews)", duration: "0 days", status: "Todo", date: "21/jul/25", type: "Mejora" },
+            { team: "Food", name: "[Mejora] Story Card (Autoplay)", duration: "2 days", status: "Done", date: "21/jul/25", type: "Mejora" },
+            { team: "Food", name: "[Ajuste] Rating", duration: "2 days", status: "Done", date: "22/ago/25", type: "Mejora" },
+            { team: "Food", name: "[Mejora] Review Card L", duration: "2 days", status: "Done", date: "08/sep/25", type: "Mejora" },
+            { team: "Food", name: "[Nuevo] Review Row L", duration: "1 day", status: "Done", date: "03/oct/25", type: "Nuevo" },
+            { team: "Food", name: "[Nuevo] Review Row L & Review User Info", duration: "3 days", status: "Done", date: "03/oct/25", type: "Nuevo" },
+            { team: "Food", name: "[TBD] Highlight Socios", duration: "0 days", status: "Todo", date: "06/oct/25", type: "Mejora" },
+        ];
+
+        // --- STATE ---
+        let currentState = {
+            tab: 'Vista General',
+            quarter: 'Q4'
+        };
+
+        const processedData = RAW_DATA.map((item, i) => ({
+            id: i,
+            ...item,
+            hours: parseDuration(item.duration),
+            quarter: getQuarter(item.date)
+        }));
+
+        // --- RENDER LOGIC ---
+        
+        let mainChartInstance = null;
+        let donutChartInstance = null;
+        let radarChartInstance = null;
+
+        function init() {
+            lucide.createIcons();
+            renderSidebar();
+            updateDashboard();
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        }
+
+        function switchTab(tabName) {
+            currentState.tab = tabName;
+            updateDashboard();
+        }
+
+        function setQuarter(q) {
+            currentState.quarter = q;
+            updateDashboard();
+        }
+
+        function renderSidebar() {
+            const container = document.getElementById('team-nav-container');
+            container.innerHTML = TEAMS.map(team => `
+                <button class="nav-btn" onclick="switchTab('${team}')" id="btn-${team.replace(/\s+/g, '')}">
+                    <i data-lucide="users"></i>
+                    <span class="nav-label">${team}</span>
+                </button>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function updateDashboard() {
+            // Update Tab Styling
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active', 'active-main');
+                btn.style.color = ''; 
+                btn.style.borderLeftColor = '';
+            });
+
+            let activeBtn;
+            if (currentState.tab === 'Vista General') {
+                activeBtn = document.getElementById('btn-general');
+                if (activeBtn) activeBtn.classList.add('active-main');
+            } else if (currentState.tab === 'Base de Datos') {
+                activeBtn = document.getElementById('btn-db');
+                if (activeBtn) activeBtn.classList.add('active');
+            } else {
+                const id = `btn-${currentState.tab.replace(/\s+/g, '')}`;
+                activeBtn = document.getElementById(id);
+                if (activeBtn) activeBtn.classList.add('active');
+            }
+
+            // Update Quarter Buttons
+            document.querySelectorAll('.q-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === currentState.quarter);
+            });
+
+            // Update Titles
+            document.getElementById('page-title-text').textContent = currentState.tab;
+            document.getElementById('page-subtitle-text').textContent = currentState.tab === 'Base de Datos' 
+                ? "Registro completo de todas las tareas" 
+                : "Performance Metrics & KPIs";
+
+            // View Switching
+            const isDb = currentState.tab === 'Base de Datos';
+            document.getElementById('dashboard-view').classList.toggle('hidden', isDb);
+            document.getElementById('db-view').classList.toggle('hidden', !isDb);
+
+            // Filter Data
+            let activeData = processedData;
+            if (!isDb && currentState.tab !== 'Vista General') {
+                activeData = activeData.filter(p => p.team === currentState.tab);
+            }
+            if (currentState.quarter !== 'All') {
+                activeData = activeData.filter(p => p.quarter === currentState.quarter);
+            }
+
+            if (isDb) {
+                renderTable(activeData);
+            } else {
+                renderKPIs(activeData);
+                renderCharts(activeData);
+            }
+        }
+
+        function renderKPIs(data) {
+            const total = data.length;
+            const hours = data.reduce((sum, p) => sum + p.hours, 0);
+            const done = data.filter(p => p.status === 'Done').length;
+            const wip = data.filter(p => p.status === 'WIP').length;
+            const todo = data.filter(p => p.status === 'Todo').length;
+
+            document.getElementById('kpi-total').textContent = total;
+            document.getElementById('kpi-hours').textContent = `${hours} h`;
+            document.getElementById('kpi-avg').textContent = total ? `~${(hours/total).toFixed(1)} h/proy` : '0';
+            document.getElementById('kpi-done').textContent = done;
+            document.getElementById('kpi-wip').textContent = wip;
+        }
+
+        function renderTable(data) {
+            const tbody = document.querySelector('#db-table tbody');
+            tbody.innerHTML = data.map(p => `
+                <tr>
+                    <td>
+                        <div style="font-weight:600; color:#fff;">${p.name}</div>
+                        <div style="font-size:11px; color:#64748b;">${p.date}</div>
+                    </td>
+                    <td style="color:#94a3b8;">${p.team}</td>
+                    <td><span style="padding:2px 8px; border-radius:4px; background:#0f1115; border:1px solid #2a2d35; color:#cbd5e1; font-size:11px; font-weight:700;">${p.quarter}</span></td>
+                    <td><span class="badge badge-${p.status}">${p.status}</span></td>
+                    <td><span class="badge badge-${p.type}">${p.type}</span></td>
+                    <td style="font-family:monospace; color:#fff; font-weight:600;">${p.hours}h</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderCharts(data) {
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.font.family = '-apple-system, sans-serif';
+
+            // --- MAIN BAR CHART (HORIZONTAL) ---
+            const ctxMain = document.getElementById('mainChart').getContext('2d');
+            if (mainChartInstance) mainChartInstance.destroy();
+
+            const teams = TEAMS;
+            // Short mapping for clean labels
+            const shortNames = {
+                "Martechs & Ads": "Martech",
+                "Onboarding": "Onboarding",
+                "Fulfillment": "Fulfillment",
+                "Quick Commerce": "QC",
+                "Plus & Pricing": "Plus",
+                "Payments": "Payments",
+                "Food": "Food"
+            };
+
+            const barData = currentState.tab === 'Vista General' 
+                ? teams.map(t => {
+                    const subset = data.filter(p => p.team === t);
+                    return {
+                        done: subset.filter(p => p.status === 'Done').length,
+                        wip: subset.filter(p => p.status === 'WIP').length,
+                        todo: subset.filter(p => p.status === 'Todo').length,
+                    };
+                })
+                : [{
+                    done: data.filter(p => p.status === 'Done').length,
+                    wip: data.filter(p => p.status === 'WIP').length,
+                    todo: data.filter(p => p.status === 'Todo').length,
+                }];
+
+            const labels = currentState.tab === 'Vista General' 
+                ? teams.map(t => shortNames[t]) 
+                : ['Estado Actual'];
+            
+            mainChartInstance = new Chart(ctxMain, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Done', data: barData.map(d => d.done), backgroundColor: '#10b981', borderRadius: 4 },
+                        { label: 'WIP', data: barData.map(d => d.wip), backgroundColor: '#FFD400', borderRadius: 4 },
+                        { label: 'Todo', data: barData.map(d => d.todo), backgroundColor: '#64748b', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y', // Set horizontal
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { 
+                            grid: { color: '#2a2d35' }, 
+                            ticks: { color: '#94a3b8' },
+                            stacked: true,
+                            beginAtZero: true
+                        },
+                        y: { 
+                            grid: { display: false }, 
+                            ticks: { color: '#fff', font: { weight: 'bold' } }, 
+                            stacked: true
+                        }
+                    },
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } },
+                        tooltip: {
+                            backgroundColor: '#1e2025',
+                            borderColor: '#2a2d35',
+                            borderWidth: 1,
+                            titleColor: '#fff',
+                            bodyColor: '#cbd5e1',
+                            padding: 12,
+                            cornerRadius: 8
+                        }
+                    }
+                }
+            });
+
+            // --- DONUT CHART ---
+            const ctxDonut = document.getElementById('donutChart').getContext('2d');
+            if (donutChartInstance) donutChartInstance.destroy();
+            
+            const nuevos = data.filter(p => p.type === 'Nuevo').length;
+            const mejoras = data.filter(p => p.type === 'Mejora').length;
+
+            donutChartInstance = new Chart(ctxDonut, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Nuevos', 'Mejoras'],
+                    datasets: [{
+                        data: [nuevos, mejoras],
+                        backgroundColor: ['#FA0050', '#a855f7'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } }
+                }
+            });
+
+            // --- RADAR CHART (Only on General) ---
+            const ctxRadar = document.getElementById('radarChart').getContext('2d');
+            const radarContainer = document.getElementById('radar-container');
+            
+            if (currentState.tab !== 'Vista General') {
+                radarContainer.classList.add('hidden');
+            } else {
+                radarContainer.classList.remove('hidden');
+                if (radarChartInstance) radarChartInstance.destroy();
+
+                const rawStats = teams.map(t => {
+                    const subset = data.filter(p => p.team === t);
+                    return {
+                        team: shortNames[t],
+                        count: subset.length,
+                        hours: subset.reduce((s, x) => s + x.hours, 0)
+                    };
+                });
+
+                // Normalization Logic to Fix "Small/Broken" Shape
+                const maxCount = Math.max(...rawStats.map(d => d.count)) || 1;
+                const maxHours = Math.max(...rawStats.map(d => d.hours)) || 1;
+
+                const normalizedCount = rawStats.map(d => (d.count / maxCount) * 100);
+                const normalizedHours = rawStats.map(d => (d.hours / maxHours) * 100);
+
+                radarChartInstance = new Chart(ctxRadar, {
+                    type: 'radar',
+                    data: {
+                        labels: teams.map(t => shortNames[t]),
+                        datasets: [
+                            { 
+                                label: 'Volumen (Proyectos)', 
+                                data: normalizedCount, 
+                                borderColor: '#FA0050', 
+                                backgroundColor: 'rgba(250, 0, 80, 0.4)', // Increased opacity
+                                pointBackgroundColor: '#FA0050',
+                                borderWidth: 2,
+                                fill: true
+                            },
+                            { 
+                                label: 'Esfuerzo (Horas)', 
+                                data: normalizedHours, 
+                                borderColor: '#00A9E0', 
+                                backgroundColor: 'rgba(0, 169, 224, 0.2)',
+                                pointBackgroundColor: '#00A9E0',
+                                borderWidth: 2,
+                                fill: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                min: 0,
+                                max: 100, // Explicit 0-100 normalization scale
+                                ticks: { display: false }, 
+                                grid: { color: '#2a2d35' },
+                                angleLines: { color: '#2a2d35' },
+                                pointLabels: { color: '#94a3b8', font: { size: 12, weight: 'bold' } }
+                            }
+                        },
+                        plugins: { 
+                            legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 10 } } },
+                            tooltip: {
+                                backgroundColor: '#1e2025',
+                                borderColor: '#FA0050',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    // Custom tooltip to show REAL values
+                                    label: function(context) {
+                                        const index = context.dataIndex;
+                                        const rawItem = rawStats[index];
+                                        if (context.datasetIndex === 0) {
+                                            return `Proyectos: ${rawItem.count}`;
+                                        } else {
+                                            return `Horas: ${rawItem.hours}h`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Init
+        init();
+
+    </script>
+</body>
+</html>
