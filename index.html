@@ -1,20 +1,4 @@
-/* =================================================================================
-   FILE 1: styles.css (Conceptually)
-   In a real setup, this would be your CSS file. 
-   Here we rely on Tailwind CSS classes which act as our styling layer.
-   =================================================================================
-*/
-
-// NOTE: The App component below now includes a script to auto-load Tailwind CDN.
-// This ensures styling works on GitHub Pages without extra build configuration.
-
-/* =================================================================================
-   FILE 2: script.js (Logic)
-   This section contains the imports, data, and React logic.
-   =================================================================================
-*/
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
@@ -54,16 +38,127 @@ const BRAND = {
   red: '#FA0050',
   dark: '#1e2025',
   darker: '#0f1115',
+  panel: '#1e2025', // Lighter dark for cards
+  border: '#2a2d35',
+  textMain: '#f8fafc',
   textMuted: '#94a3b8'
 };
 
 const COLORS = {
-  Done: '#10b981', 
+  Done: '#10b981', // Emerald
   WIP: BRAND.yellow, 
-  Todo: '#64748b'
+  Todo: '#64748b' // Slate
 };
 
-// --- HELPER FUNCTIONS ---
+// --- STYLES OBJECTS (Replaces Tailwind) ---
+const styles = {
+  container: {
+    display: 'flex',
+    height: '100vh',
+    backgroundColor: BRAND.darker,
+    color: BRAND.textMain,
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    overflow: 'hidden'
+  },
+  sidebar: (isOpen) => ({
+    width: isOpen ? '260px' : '80px',
+    backgroundColor: BRAND.panel,
+    borderRight: `1px solid ${BRAND.border}`,
+    transition: 'width 0.3s ease',
+    display: 'flex',
+    flexDirection: 'column',
+    zIndex: 20
+  }),
+  sidebarHeader: {
+    padding: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottom: `1px solid ${BRAND.border}`
+  },
+  logoContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px'
+  },
+  logoIcon: {
+    backgroundColor: BRAND.red,
+    padding: '6px',
+    borderRadius: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  logoText: {
+    fontWeight: '800',
+    fontSize: '18px',
+    letterSpacing: '1px',
+    color: '#fff'
+  },
+  navButton: (active) => ({
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '12px',
+    marginBottom: '4px',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer',
+    backgroundColor: active === 'Vista General' ? BRAND.red : (active ? BRAND.border : 'transparent'),
+    color: active === 'Vista General' ? '#fff' : (active ? BRAND[active] : BRAND.textMuted),
+    transition: 'all 0.2s ease',
+    fontSize: '14px',
+    fontWeight: active ? '600' : '400',
+    borderLeft: active && active !== 'Vista General' ? `4px solid ${BRAND.red}` : '4px solid transparent' // Default border for alignment
+  }),
+  main: {
+    flex: 1,
+    overflowY: 'auto',
+    backgroundColor: BRAND.darker,
+    position: 'relative'
+  },
+  header: {
+    backgroundColor: 'rgba(30, 32, 37, 0.9)',
+    backdropFilter: 'blur(10px)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+    padding: '20px 30px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: `1px solid ${BRAND.border}`
+  },
+  card: {
+    backgroundColor: BRAND.panel,
+    borderRadius: '12px',
+    border: `1px solid ${BRAND.border}`,
+    padding: '24px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)'
+  },
+  grid4: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+    gap: '24px',
+    marginBottom: '32px'
+  },
+  grid3: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+    gap: '24px'
+  },
+  badge: (type) => {
+    const base = { padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold', border: '1px solid transparent' };
+    if (type === 'Done') return { ...base, backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.3)' };
+    if (type === 'WIP') return { ...base, backgroundColor: 'rgba(255, 212, 0, 0.1)', color: BRAND.yellow, borderColor: 'rgba(255, 212, 0, 0.2)' };
+    if (type === 'Todo') return { ...base, backgroundColor: 'rgba(148, 163, 184, 0.2)', color: '#94a3b8', borderColor: 'rgba(148, 163, 184, 0.3)' };
+    if (type === 'Nuevo') return { ...base, backgroundColor: 'rgba(250, 0, 80, 0.15)', color: BRAND.red, borderColor: 'rgba(250, 0, 80, 0.3)' };
+    return { ...base, backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', borderColor: 'rgba(168, 85, 247, 0.3)' };
+  }
+};
+
+// --- HELPER WRAPPERS ---
+// Moved these UP before they are used in processedData to fix ReferenceError/TypeError
 
 const parseDuration = (durationStr) => {
   if (!durationStr) return 0;
@@ -101,7 +196,7 @@ const getQuarter = (dateStr) => {
   return "Q4";
 };
 
-// --- DATA SOURCE ---
+// --- DATA PROCESSING (Identical Logic) ---
 
 const RAW_DATA = [
   { team: "Martechs & Ads", name: "[Mejora] Nuevo caso de uso en Priority Message", duration: "4 days", status: "Done", date: "07/mar/25", type: "Mejora" },
@@ -115,13 +210,11 @@ const RAW_DATA = [
   { team: "Martechs & Ads", name: "[Mejora] Tag M & S [Exclusive Deals]", duration: "4 days", status: "Done", date: "31/jul/25", type: "Mejora" },
   { team: "Martechs & Ads", name: "[Affordability] HO & Componentización", duration: "8 weeks", status: "Done", date: "22/ago/25", type: "Mejora" },
   { team: "Martechs & Ads", name: "[Mejora] Product Card S", duration: "3 days", status: "Done", date: "06/oct/25", type: "Mejora" },
-
   { team: "Onboarding", name: "[Mejora] Search Placeholder Dinámico", duration: "2 weeks", status: "Done", date: "23/abr/25", type: "Mejora" },
   { team: "Onboarding", name: "[Mejora] Home Hero Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
   { team: "Onboarding", name: "[Mejora] Banner Autoplay", duration: "1 week", status: "Done", date: "24/abr/25", type: "Mejora" },
   { team: "Onboarding", name: "[Mejora] Home Hero", duration: "3 weeks", status: "Done", date: "21/may/25", type: "Mejora" },
   { team: "Onboarding", name: "[Mejora] Home Hero Agregar Prop Boolena CTA", duration: "1 day", status: "Done", date: "17/jun/25", type: "Mejora" },
-
   { team: "Plus & Pricing", name: "[Mejora] Rebrand & FOMO Plus", duration: "1 week", status: "Done", date: "12/feb/25", type: "Mejora" },
   { team: "Plus & Pricing", name: "[Mejora] Pricing en componentes (Sin Impuestos)", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
   { team: "Plus & Pricing", name: "[Ajuste] Banner Subscription; ajustar tamaño", duration: "4 hours", status: "Done", date: "31/mar/25", type: "Mejora" },
@@ -132,7 +225,6 @@ const RAW_DATA = [
   { team: "Plus & Pricing", name: "[Affordability] HO & Componentización", duration: "8 weeks", status: "Done", date: "22/ago/25", type: "Mejora" },
   { team: "Plus & Pricing", name: "[Assessment] Plus Home Auditoria", duration: "1 week", status: "Done", date: "22/sep/25", type: "Mejora" },
   { team: "Plus & Pricing", name: "[Mejora] Footer (Transición Individual Tag)", duration: "2 weeks", status: "WIP", date: "01/dic/25", type: "Mejora" },
-
   { team: "Fulfillment", name: "[Mejora] Order Progress Bar", duration: "3 days", status: "Done", date: "21/mar/25", type: "Mejora" },
   { team: "Fulfillment", name: "[Mejora] Order: cambio de Tag por Highlight", duration: "4 days", status: "Done", date: "31/mar/25", type: "Mejora" },
   { team: "Fulfillment", name: "[Ajuste] Order Card", duration: "1 week", status: "Done", date: "10/jul/25", type: "Mejora" },
@@ -140,7 +232,6 @@ const RAW_DATA = [
   { team: "Fulfillment", name: "[Mejora] Live Activity (Iteraciones en PIN)", duration: "1 day", status: "Done", date: "28/jul/25", type: "Mejora" },
   { team: "Fulfillment", name: "[TBD] Wizard Page", duration: "1 day", status: "Done", date: "28/jul/25", type: "Mejora" },
   { team: "Fulfillment", name: "[Ajuste] Order Card & Live Activity", duration: "1 day", status: "Done", date: "08/sep/25", type: "Mejora" },
-
   { team: "Quick Commerce", name: "[Mejora] Chip S & M (Tag)", duration: "1 week", status: "Done", date: "12/feb/25", type: "Mejora" },
   { team: "Quick Commerce", name: "[Nuevo] Colecciones M", duration: "3 weeks", status: "Done", date: "21/mar/25", type: "Nuevo" },
   { team: "Quick Commerce", name: "[Nuevo] Iniciativa Variants (QC)", duration: "2 weeks", status: "Done", date: "21/mar/25", type: "Nuevo" },
@@ -161,11 +252,9 @@ const RAW_DATA = [
   { team: "Quick Commerce", name: "[Mejora] Story Page", duration: "3 days", status: "Done", date: "15/sep/25", type: "Mejora" },
   { team: "Quick Commerce", name: "[Mejora] Box Message XS, S y M", duration: "2 days", status: "Done", date: "03/oct/25", type: "Mejora" },
   { team: "Quick Commerce", name: "[Mejora] Product Card S & M-QC Nuevos", duration: "1 week, 4 days", status: "Done", date: "13/oct/25", type: "Mejora" },
-
   { team: "Payments", name: "[Mejora] Incentive Row Voucher S", duration: "2 days", status: "Done", date: "03/jun/25", type: "Mejora" },
   { team: "Payments", name: "[Mejora] Row Informative M (Affordability)", duration: "1 day", status: "Done", date: "12/ago/25", type: "Mejora" },
   { team: "Payments", name: "[Ajuste] Box Interactive", duration: "3 days", status: "Done", date: "08/sep/25", type: "Mejora" },
-
   { team: "Food", name: "[Mejora] Pricing en componentes", duration: "4 days", status: "Done", date: "25/mar/25", type: "Mejora" },
   { team: "Food", name: "[Mejora] Reviews (More Reviews)", duration: "0 days", status: "Todo", date: "21/jul/25", type: "Mejora" },
   { team: "Food", name: "[Mejora] Story Card (Autoplay)", duration: "2 days", status: "Done", date: "21/jul/25", type: "Mejora" },
@@ -184,54 +273,33 @@ const processedData = RAW_DATA.map((item, index) => ({
   description: `${item.name} - ${item.date}`
 }));
 
-// --- COMPONENT DEFINITIONS ---
+// --- COMPONENTS WITH INLINE STYLES ---
 
-const Card = ({ children, className = "" }) => (
-  <div className={`bg-[#1e2025] rounded-xl shadow-lg border border-[#2a2d35] p-6 text-slate-200 ${className}`}>
-    {children}
-  </div>
-);
-
-const StatCard = ({ title, value, subtext, icon: Icon, colorClass }) => (
-  <Card>
-    <div className="flex items-start justify-between">
+const StatCard = ({ title, value, subtext, icon: Icon, color }) => (
+  <div style={styles.card}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
       <div>
-        <p className="text-sm font-medium text-slate-400 uppercase tracking-wider">{title}</p>
-        <h3 className="text-3xl font-bold text-white mt-2">{value}</h3>
-        {subtext && <p className="text-xs text-slate-500 mt-1">{subtext}</p>}
+        <p style={{ fontSize: '12px', fontWeight: '600', color: BRAND.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</p>
+        <h3 style={{ fontSize: '32px', fontWeight: '800', color: '#fff', margin: '8px 0 4px 0' }}>{value}</h3>
+        {subtext && <p style={{ fontSize: '12px', color: '#64748b' }}>{subtext}</p>}
       </div>
-      <div className={`p-3 rounded-lg bg-opacity-20 ${colorClass}`}>
+      <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: `${color}20`, color: color }}>
         <Icon size={24} />
       </div>
     </div>
-  </Card>
+  </div>
 );
-
-const Badge = ({ type }) => {
-  const styles = {
-    Done: "bg-emerald-900/40 text-emerald-400 border border-emerald-800",
-    WIP: "bg-amber-900/40 text-amber-400 border border-amber-800",
-    Todo: "bg-slate-700/40 text-slate-400 border border-slate-600",
-    Nuevo: "bg-[#FA0050]/20 text-[#FA0050] border border-[#FA0050]/40",
-    Mejora: "bg-purple-900/40 text-purple-400 border border-purple-800"
-  };
-  return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${styles[type] || "bg-gray-800 text-gray-400"}`}>
-      {type}
-    </span>
-  );
-};
 
 const CustomRadarTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#0f1115] p-3 border border-slate-700 shadow-xl rounded-lg text-xs text-white">
-        <p className="font-bold text-[#FFD400] mb-2">{label}</p>
+      <div style={{ backgroundColor: BRAND.darker, padding: '12px', border: `1px solid ${BRAND.border}`, borderRadius: '8px', color: '#fff', fontSize: '12px' }}>
+        <p style={{ fontWeight: 'bold', color: BRAND.yellow, marginBottom: '8px' }}>{label}</p>
         {payload.map((p, index) => (
-          <div key={index} className="flex items-center space-x-2 mb-1">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }}></div>
-            <span className="text-slate-400">{p.name}:</span>
-            <span className="font-mono font-medium text-white">
+          <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: p.color }}></div>
+            <span style={{ color: BRAND.textMuted }}>{p.name}:</span>
+            <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
               {p.name === 'Proyectos' && p.payload.realProjects}
               {p.name === 'Horas (x10)' && p.payload.realHours}
               {p.name === 'Completados' && p.payload.realDone}
@@ -244,55 +312,14 @@ const CustomRadarTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-/* =================================================================================
-   FILE 3: index.html (Main Component)
-   This component serves as the `<body>` of your application.
-   =================================================================================
-*/
+// --- MAIN APP ---
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("Vista General");
   const [activeQuarter, setActiveQuarter] = useState("All"); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // --- AUTO-INJECT TAILWIND (For GitHub Pages/Static Hosting) ---
-  useEffect(() => {
-    // 1. Check if Tailwind is already loaded or injected
-    if (window.tailwind || document.getElementById('tailwind-cdn')) return;
-
-    // 2. Inject Tailwind CSS via CDN
-    const script = document.createElement('script');
-    script.id = 'tailwind-cdn'; // ID ensures we don't inject twice
-    script.src = "https://cdn.tailwindcss.com";
-    script.async = true;
-    
-    script.onload = () => {
-      // 3. Configure theme extension for custom colors once loaded
-      // This helps if Arbitrary Values (JIT) struggle with dynamic content
-      if (window.tailwind) {
-        window.tailwind.config = {
-          theme: {
-            extend: {
-              colors: {
-                brand: {
-                  yellow: '#FFD400',
-                  blue: '#00A9E0',
-                  red: '#FA0050',
-                  dark: '#1e2025',
-                  darker: '#0f1115',
-                }
-              }
-            }
-          }
-        };
-      }
-    };
-    
-    document.head.appendChild(script);
-  }, []);
-
-  // --- DATA TRANSFORMATION LOGIC ---
-
+  // Data processing logic
   const activeData = useMemo(() => {
     let data = processedData;
     if (activeTab !== "Vista General" && activeTab !== "Base de Datos") {
@@ -308,35 +335,28 @@ export default function App() {
     const totalProjects = activeData.length;
     const totalHours = activeData.reduce((acc, curr) => acc + curr.hours, 0);
     const avgHours = totalProjects > 0 ? (totalHours / totalProjects).toFixed(1) : 0;
-    
     const statusCounts = activeData.reduce((acc, curr) => {
       acc[curr.status] = (acc[curr.status] || 0) + 1;
       return acc;
     }, { Done: 0, WIP: 0, Todo: 0 });
-
     const typeCounts = activeData.reduce((acc, curr) => {
       acc[curr.type] = (acc[curr.type] || 0) + 1;
       return acc;
     }, { Nuevo: 0, Mejora: 0 });
-
     return { totalProjects, totalHours, avgHours, statusCounts, typeCounts };
   }, [activeData]);
 
   const barChartData = useMemo(() => {
     const data = TEAMS.map(team => {
       let teamProjects = processedData.filter(p => p.team === team);
-      if (activeQuarter !== "All") {
-        teamProjects = teamProjects.filter(p => p.quarter === activeQuarter);
-      }
+      if (activeQuarter !== "All") teamProjects = teamProjects.filter(p => p.quarter === activeQuarter);
       const done = teamProjects.filter(p => p.status === "Done").length;
       const wip = teamProjects.filter(p => p.status === "WIP").length;
       const todo = teamProjects.filter(p => p.status === "Todo").length;
-      
       let shortName = team.split(' ')[0];
       if (team === "Quick Commerce") shortName = "QC";
       if (team === "Plus & Pricing") shortName = "Plus";
       if (team === "Martechs & Ads") shortName = "Martech";
-      
       return { name: shortName, full: team, Done: done, WIP: wip, Todo: todo };
     });
     return data;
@@ -349,30 +369,18 @@ export default function App() {
 
   const radarData = useMemo(() => {
     if (activeTab !== "Vista General") return [];
-
     const rawRadar = TEAMS.map(team => {
       let projects = processedData.filter(p => p.team === team);
-      if (activeQuarter !== "All") {
-        projects = projects.filter(p => p.quarter === activeQuarter);
-      }
+      if (activeQuarter !== "All") projects = projects.filter(p => p.quarter === activeQuarter);
       const total = projects.length;
       const hours = projects.reduce((sum, p) => sum + p.hours, 0);
       const done = projects.filter(p => p.status === "Done").length;
-      
       if (total === 0) return null;
-
-      return {
-        subject: team.split(' ')[0], 
-        realProjects: total,
-        realHours: hours,
-        realDone: done,
-      };
+      return { subject: team.split(' ')[0], realProjects: total, realHours: hours, realDone: done };
     }).filter(Boolean);
-
     const maxProjects = Math.max(...rawRadar.map(d => d.realProjects)) || 1;
     const maxHours = Math.max(...rawRadar.map(d => d.realHours)) || 1;
     const maxDone = Math.max(...rawRadar.map(d => d.realDone)) || 1;
-
     return rawRadar.map(d => ({
       ...d,
       Proyectos: (d.realProjects / maxProjects) * 100,
@@ -382,266 +390,211 @@ export default function App() {
     }));
   }, [activeTab, activeQuarter]);
 
-  // --- RENDER (JSX TEMPLATE) ---
+  // --- RENDER ---
 
   return (
-    <div className="flex h-screen bg-[#0f1115] font-sans text-slate-100 overflow-hidden">
-      
-      {/* Sidebar Navigation */}
-      <aside 
-        className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-[#1e2025] border-r border-[#2a2d35] transition-all duration-300 flex flex-col z-20`}
-      >
-        <div className="p-4 flex items-center justify-between border-b border-[#2a2d35]">
+    <div style={styles.container}>
+      {/* SIDEBAR */}
+      <aside style={styles.sidebar(isSidebarOpen)}>
+        <div style={styles.sidebarHeader}>
           {isSidebarOpen && (
-            <div className="flex items-center gap-2">
-              <div className="bg-[#FA0050] p-1.5 rounded-lg">
-                 <Flame size={20} className="text-white fill-current" /> 
+            <div style={styles.logoContainer}>
+              <div style={styles.logoIcon}>
+                <Flame size={20} color="#fff" fill="currentColor" />
               </div>
-              <h1 className="font-bold text-lg tracking-wider text-white">
-                UX-OPS <span className="text-[#FA0050]">DASH</span>
-              </h1>
+              <div style={styles.logoText}>
+                UX-OPS <span style={{ color: BRAND.red }}>DASH</span>
+              </div>
             </div>
           )}
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:bg-[#2a2d35] hover:text-white rounded-lg transition-colors">
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+            style={{ background: 'none', border: 'none', color: BRAND.textMuted, cursor: 'pointer', marginLeft: isSidebarOpen ? '0' : 'auto' }}
+          >
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-3">
-          <button
+        <nav style={{ padding: '16px', overflowY: 'auto' }}>
+          <button 
             onClick={() => setActiveTab("Vista General")}
-            className={`w-full flex items-center p-3 rounded-lg transition-all ${
-              activeTab === "Vista General" 
-                ? "bg-[#FA0050] text-white shadow-lg shadow-red-900/20" 
-                : "text-slate-400 hover:bg-[#2a2d35] hover:text-white"
-            }`}
+            style={{ 
+              ...styles.navButton(activeTab === 'Vista General' ? 'Vista General' : false),
+              borderLeft: activeTab === 'Vista General' ? 'none' : '4px solid transparent' // Special case for main button styling
+            }}
           >
-            <LayoutDashboard size={20} />
-            {isSidebarOpen && <span className="ml-3 font-medium">Vista General</span>}
+            <LayoutDashboard size={20} style={{ marginRight: isSidebarOpen ? '12px' : '0' }} />
+            {isSidebarOpen && "Vista General"}
           </button>
 
-          <div className="pt-6 pb-2">
-            {isSidebarOpen && <p className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Equipos</p>}
-          </div>
+          {isSidebarOpen && <div style={{ padding: '24px 12px 8px 12px', fontSize: '10px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Equipos</div>}
 
           {TEAMS.map(team => (
             <button
               key={team}
               onClick={() => setActiveTab(team)}
-              className={`w-full flex items-center p-3 rounded-lg transition-all ${
-                activeTab === team 
-                  ? "bg-[#2a2d35] text-[#FA0050] border-l-4 border-[#FA0050]" 
-                  : "text-slate-400 hover:bg-[#2a2d35] hover:text-white"
-              }`}
+              style={styles.navButton(activeTab === team ? team : false)}
             >
-              <Users size={20} />
-              {isSidebarOpen && <span className="ml-3 font-medium truncate">{team}</span>}
+              <Users size={20} style={{ marginRight: isSidebarOpen ? '12px' : '0', color: activeTab === team ? BRAND.red : 'inherit' }} />
+              {isSidebarOpen && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{team}</span>}
             </button>
           ))}
 
-          <div className="pt-6 pb-2">
-             {isSidebarOpen && <p className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Data</p>}
-          </div>
+          {isSidebarOpen && <div style={{ padding: '24px 12px 8px 12px', fontSize: '10px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Data</div>}
           
           <button
             onClick={() => setActiveTab("Base de Datos")}
-            className={`w-full flex items-center p-3 rounded-lg transition-all ${
-              activeTab === "Base de Datos" 
-                ? "bg-[#2a2d35] text-[#00A9E0] border-l-4 border-[#00A9E0]" 
-                : "text-slate-400 hover:bg-[#2a2d35] hover:text-white"
-            }`}
+            style={{
+               ...styles.navButton(activeTab === 'Base de Datos' ? 'Base de Datos' : false),
+               borderLeft: activeTab === 'Base de Datos' ? `4px solid ${BRAND.blue}` : '4px solid transparent',
+               color: activeTab === 'Base de Datos' ? BRAND.blue : BRAND.textMuted
+            }}
           >
-            <Database size={20} />
-            {isSidebarOpen && <span className="ml-3 font-medium">Base de Datos</span>}
+            <Database size={20} style={{ marginRight: isSidebarOpen ? '12px' : '0' }} />
+            {isSidebarOpen && "Base de Datos"}
           </button>
         </nav>
-        
-        <div className="p-4 border-t border-[#2a2d35]">
-          {isSidebarOpen && <div className="text-xs text-slate-600 font-mono">v3.3.0 • UX-OPS</div>}
-        </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto bg-[#0f1115] relative">
-        <header className="bg-[#1e2025]/80 backdrop-blur-md sticky top-0 z-10 px-8 py-5 flex justify-between items-center border-b border-[#2a2d35]">
+      {/* MAIN CONTENT */}
+      <main style={styles.main}>
+        <header style={styles.header}>
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">{activeTab}</h2>
-            <p className="text-sm text-slate-400 font-medium mt-1">
+            <h2 style={{ fontSize: '24px', fontWeight: '800', margin: 0, color: '#fff' }}>{activeTab}</h2>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0 0' }}>
               {activeTab === "Base de Datos" ? "Registro completo de todas las tareas" : "Performance Metrics & KPIs"}
             </p>
           </div>
-          <div className="flex items-center space-x-6">
-             <div className="flex bg-[#0f1115] p-1 rounded-lg border border-[#2a2d35]">
-                {["All", "Q1", "Q2", "Q3", "Q4"].map(q => (
-                  <button
-                    key={q}
-                    onClick={() => setActiveQuarter(q)}
-                    className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                      activeQuarter === q 
-                        ? 'bg-[#2a2d35] text-[#FA0050] shadow-sm' 
-                        : 'text-slate-500 hover:text-slate-300'
-                    }`}
-                  >
-                    {q}
-                  </button>
-                ))}
-             </div>
-             <div className="text-right hidden sm:block border-l border-[#2a2d35] pl-6">
-                <p className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Año Fiscal</p>
-                <p className="font-bold text-lg text-[#FA0050]">2025</p>
-             </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div style={{ display: 'flex', backgroundColor: BRAND.darker, padding: '4px', borderRadius: '8px', border: `1px solid ${BRAND.border}` }}>
+              {["All", "Q1", "Q2", "Q3", "Q4"].map(q => (
+                <button
+                  key={q}
+                  onClick={() => setActiveQuarter(q)}
+                  style={{
+                    padding: '6px 16px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    border: 'none',
+                    cursor: 'pointer',
+                    backgroundColor: activeQuarter === q ? BRAND.border : 'transparent',
+                    color: activeQuarter === q ? BRAND.red : '#64748b',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+            <div style={{ borderLeft: `1px solid ${BRAND.border}`, paddingLeft: '20px', display: 'none', '@media (min-width: 768px)': { display: 'block' } }}>
+               <span style={{ fontSize: '10px', color: '#64748b', fontWeight: '700', display: 'block', textTransform: 'uppercase' }}>Año Fiscal</span>
+               <span style={{ fontSize: '18px', fontWeight: '800', color: BRAND.red }}>2025</span>
+            </div>
           </div>
         </header>
 
-        <div className="p-8 space-y-8">
+        <div style={{ padding: '30px' }}>
           {activeTab === "Base de Datos" ? (
-            <Card className="overflow-hidden border-none bg-[#1e2025]">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-white flex items-center">
-                  <span className="w-2 h-6 bg-[#00A9E0] mr-3 rounded-full"></span>
+            <div style={{ ...styles.card, border: 'none', backgroundColor: 'transparent', padding: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ width: '6px', height: '20px', backgroundColor: BRAND.blue, borderRadius: '4px', marginRight: '10px' }}></span>
                   Registro de Proyectos
                 </h3>
-                <div className="flex space-x-2">
-                   <span className="text-xs font-bold px-3 py-1 bg-[#2a2d35] rounded-full text-slate-300 border border-slate-700">Total: {activeData.length}</span>
-                </div>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', padding: '4px 12px', backgroundColor: BRAND.panel, borderRadius: '20px', border: `1px solid ${BRAND.border}`, color: '#cbd5e1' }}>
+                  Total: {activeData.length}
+                </span>
               </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-[#2a2d35] sticky top-0 z-10 text-xs uppercase tracking-wider text-slate-400 font-bold">
+              <div style={{ overflowX: 'auto', borderRadius: '12px', border: `1px solid ${BRAND.border}` }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                  <thead style={{ backgroundColor: BRAND.panel }}>
                     <tr>
-                      <th className="py-4 px-6 rounded-tl-lg">Proyecto</th>
-                      <th className="py-4 px-6">Equipo</th>
-                      <th className="py-4 px-6">Quarter</th>
-                      <th className="py-4 px-6">Estado</th>
-                      <th className="py-4 px-6">Tipo</th>
-                      <th className="py-4 px-6 text-right rounded-tr-lg">Tiempo</th>
+                      {['Proyecto', 'Equipo', 'Quarter', 'Estado', 'Tipo', 'Tiempo'].map(h => (
+                        <th key={h} style={{ padding: '16px 24px', color: '#94a3b8', textTransform: 'uppercase', fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px' }}>{h}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#2a2d35] text-sm">
-                    {activeData.map((project) => (
-                      <tr 
-                        key={project.id} 
-                        className="hover:bg-[#2a2d35]/50 transition-colors group cursor-default"
-                      >
-                        <td className="py-4 px-6">
-                          <div className="font-semibold text-white">{project.name}</div>
-                          <div className="text-xs text-slate-500 mt-1">{project.date}</div>
+                  <tbody>
+                    {activeData.map((project, i) => (
+                      <tr key={project.id} style={{ borderTop: `1px solid ${BRAND.border}`, backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                        <td style={{ padding: '16px 24px' }}>
+                          <div style={{ fontWeight: '600', color: '#fff' }}>{project.name}</div>
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{project.date}</div>
                         </td>
-                        <td className="py-4 px-6 text-slate-400">{project.team}</td>
-                        <td className="py-4 px-6">
-                           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-[#0f1115] text-slate-300 border border-[#2a2d35]">
-                             {project.quarter}
-                           </span>
+                        <td style={{ padding: '16px 24px', color: '#94a3b8' }}>{project.team}</td>
+                        <td style={{ padding: '16px 24px' }}>
+                          <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: BRAND.darker, border: `1px solid ${BRAND.border}`, color: '#cbd5e1', fontSize: '11px', fontWeight: '700' }}>{project.quarter}</span>
                         </td>
-                        <td className="py-4 px-6">
-                          <Badge type={project.status} />
-                        </td>
-                        <td className="py-4 px-6">
-                          <Badge type={project.type} />
-                        </td>
-                        <td className="py-4 px-6 text-right font-mono text-slate-400">
-                          <span className="text-white font-bold">{project.hours}h</span> <span className="opacity-50 text-xs">({project.duration})</span>
-                        </td>
+                        <td style={{ padding: '16px 24px' }}><span style={styles.badge(project.status)}>{project.status}</span></td>
+                        <td style={{ padding: '16px 24px' }}><span style={styles.badge(project.type)}>{project.type}</span></td>
+                        <td style={{ padding: '16px 24px', fontFamily: 'monospace', color: '#fff', fontWeight: '600' }}>{project.hours}h</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </Card>
+            </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard 
-                  title="Total Proyectos" 
-                  value={metrics.totalProjects} 
-                  subtext={activeQuarter === 'All' ? "Año 2025 Completo" : `En ${activeQuarter} 2025`}
-                  icon={Briefcase} 
-                  colorClass="bg-[#FA0050] text-[#FA0050]" 
-                />
-                <StatCard 
-                  title="Tiempo Trabajado" 
-                  value={`${metrics.totalHours} h`} 
-                  subtext={`~${metrics.avgHours} h/proy`}
-                  icon={Clock} 
-                  colorClass="bg-[#00A9E0] text-[#00A9E0]" 
-                />
-                <StatCard 
-                  title="Completados" 
-                  value={metrics.statusCounts.Done} 
-                  subtext={`${((metrics.statusCounts.Done / metrics.totalProjects || 0) * 100).toFixed(0)}% Tasa de éxito`}
-                  icon={CheckCircle2} 
-                  colorClass="bg-[#10b981] text-[#10b981]" 
-                />
-                <StatCard 
-                  title="En Progreso" 
-                  value={metrics.statusCounts.WIP} 
-                  subtext={`${metrics.statusCounts.Todo} Bloqueados`}
-                  icon={CircleDashed} 
-                  colorClass="bg-[#FFD400] text-[#FFD400]" 
-                />
+              {/* KPIs */}
+              <div style={styles.grid4}>
+                <StatCard title="Total Proyectos" value={metrics.totalProjects} subtext="Año 2025 Completo" icon={Briefcase} color={BRAND.red} />
+                <StatCard title="Tiempo Trabajado" value={`${metrics.totalHours} h`} subtext={`~${metrics.avgHours} h/proy`} icon={Clock} color={BRAND.blue} />
+                <StatCard title="Completados" value={metrics.statusCounts.Done} subtext="Tasa de éxito global" icon={CheckCircle2} color={COLORS.Done} />
+                <StatCard title="En Progreso" value={metrics.statusCounts.WIP} subtext="Bloqueados / Todo" icon={CircleDashed} color={BRAND.yellow} />
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                <Card className="lg:col-span-2 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#FA0050]"></div>
-                  <h3 className="text-lg font-bold text-white mb-6 pl-2">
-                    {activeTab === "Vista General" ? `Estado por Equipo (${activeQuarter})` : "Distribución de Estado"}
+              {/* CHARTS */}
+              <div style={styles.grid3}>
+                {/* BAR CHART */}
+                <div style={{ ...styles.card, gridColumn: 'span 2' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '24px', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ width: '4px', height: '16px', backgroundColor: BRAND.red, marginRight: '10px' }}></span>
+                    {activeTab === "Vista General" ? `Carga por Equipo (${activeQuarter})` : "Distribución"}
                   </h3>
-                  <div className="h-72">
+                  <div style={{ height: '300px' }}>
                     <ResponsiveContainer width="100%" height="100%">
                       {activeTab === "Vista General" ? (
-                        <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                          <XAxis 
-                            dataKey="name" 
-                            stroke="#94a3b8" 
-                            fontSize={12} 
-                            tickLine={false} 
-                            axisLine={false} 
-                            interval={0} 
-                          />
-                          <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                          <RechartsTooltip 
-                            contentStyle={{ backgroundColor: '#0f1115', borderRadius: '8px', border: '1px solid #334155', color: '#fff' }}
-                            cursor={{ fill: '#334155', opacity: 0.4 }}
-                          />
-                          <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                        <BarChart data={barChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={BRAND.border} />
+                          <XAxis dataKey="name" stroke={BRAND.textMuted} fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke={BRAND.textMuted} fontSize={12} tickLine={false} axisLine={false} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: BRAND.darker, borderColor: BRAND.border, color: '#fff', borderRadius: '8px' }} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                          <Legend wrapperStyle={{ paddingTop: '20px' }} />
                           <Bar dataKey="Done" stackId="a" fill={COLORS.Done} radius={[0, 0, 0, 0]} />
                           <Bar dataKey="WIP" stackId="a" fill={COLORS.WIP} />
                           <Bar dataKey="Todo" stackId="a" fill={COLORS.Todo} radius={[4, 4, 0, 0]} />
                         </BarChart>
                       ) : (
-                        <BarChart data={[{ name: 'Estado', ...metrics.statusCounts }]} layout="vertical" margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#334155" />
-                           <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                           <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} hide />
-                           <RechartsTooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: '#0f1115', border: '1px solid #334155', color: '#fff' }}/>
+                        <BarChart data={[{ name: 'Estado', ...metrics.statusCounts }]} layout="vertical">
+                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={BRAND.border} />
+                           <XAxis type="number" stroke={BRAND.textMuted} fontSize={12} hide />
+                           <YAxis dataKey="name" type="category" hide />
+                           <RechartsTooltip contentStyle={{ backgroundColor: BRAND.darker, borderColor: BRAND.border }} cursor={{ fill: 'transparent' }}/>
                            <Legend />
-                           <Bar dataKey="Done" fill={COLORS.Done} radius={[0, 4, 4, 0]} barSize={40} />
-                           <Bar dataKey="WIP" fill={COLORS.WIP} radius={[0, 4, 4, 0]} barSize={40} />
-                           <Bar dataKey="Todo" fill={COLORS.Todo} radius={[0, 4, 4, 0]} barSize={40} />
+                           <Bar dataKey="Done" fill={COLORS.Done} radius={[0, 4, 4, 0]} barSize={60} label={{ position: 'right', fill: '#fff' }} />
+                           <Bar dataKey="WIP" fill={COLORS.WIP} radius={[0, 4, 4, 0]} barSize={60} label={{ position: 'right', fill: '#fff' }} />
+                           <Bar dataKey="Todo" fill={COLORS.Todo} radius={[0, 4, 4, 0]} barSize={60} label={{ position: 'right', fill: '#fff' }} />
                         </BarChart>
                       )}
                     </ResponsiveContainer>
                   </div>
-                </Card>
+                </div>
 
-                <div className="space-y-6">
-                  
-                  <Card className="relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-[#a855f7]"></div>
-                    <h3 className="text-lg font-bold text-white mb-2 pl-2">Naturaleza del Trabajo</h3>
-                    <div className="h-48 flex items-center justify-center">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {/* DONUT */}
+                  <div style={styles.card}>
+                    <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '10px' }}>Naturaleza</h3>
+                    <div style={{ height: '180px' }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={donutChartData}
                             cx="50%"
                             cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
+                            innerRadius={50}
+                            outerRadius={70}
                             paddingAngle={5}
                             dataKey="value"
                             stroke="none"
@@ -650,39 +603,30 @@ export default function App() {
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <RechartsTooltip contentStyle={{ backgroundColor: '#0f1115', border: '1px solid #334155', color: '#fff' }} />
+                          <RechartsTooltip contentStyle={{ backgroundColor: BRAND.darker, borderColor: BRAND.border, color: '#fff', borderRadius: '8px' }} />
                           <Legend verticalAlign="bottom" height={36}/>
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="text-center mt-2">
-                      <span className="text-sm text-slate-400">
-                        <span className="font-bold text-white">{metrics.typeCounts.Mejora}</span> Mejoras vs <span className="font-bold text-white">{metrics.typeCounts.Nuevo}</span> Nuevos
-                      </span>
-                    </div>
-                  </Card>
+                  </div>
 
+                  {/* RADAR */}
                   {activeTab === "Vista General" && (
-                    <Card className="relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-[#FA0050]"></div>
-                      <h3 className="text-lg font-bold text-white mb-2 pl-2">Comparativa Equipos</h3>
-                      <div className="h-48">
+                    <div style={styles.card}>
+                      <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '10px' }}>Radar</h3>
+                      <div style={{ height: '180px' }}>
                         <ResponsiveContainer width="100%" height="100%">
-                          <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
-                            <PolarGrid stroke="#334155" />
-                            <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                          <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
+                            <PolarGrid stroke={BRAND.border} />
+                            <PolarAngleAxis dataKey="subject" tick={{ fill: BRAND.textMuted, fontSize: 10 }} />
                             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                            
-                            <Radar name="Proyectos" dataKey="Proyectos" stroke="#FA0050" fill="#FA0050" fillOpacity={0.4} />
-                            <Radar name="Horas (x10)" dataKey="Horas" stroke="#6366f1" fill="#6366f1" fillOpacity={0.0} />
-                            <Radar name="Completados" dataKey="Completados" stroke="#10b981" fill="#10b981" fillOpacity={0.0} />
-                            
-                            <Legend iconType="plainline" wrapperStyle={{ fontSize: '10px' }} />
+                            <Radar name="Proyectos" dataKey="Proyectos" stroke={BRAND.red} fill={BRAND.red} fillOpacity={0.3} />
+                            <Radar name="Horas" dataKey="Horas" stroke={BRAND.blue} fill={BRAND.blue} fillOpacity={0.0} />
                             <RechartsTooltip content={<CustomRadarTooltip />} />
                           </RadarChart>
                         </ResponsiveContainer>
                       </div>
-                    </Card>
+                    </div>
                   )}
                 </div>
               </div>
