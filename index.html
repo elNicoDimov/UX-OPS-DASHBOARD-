@@ -62,13 +62,17 @@
             border-bottom: 1px solid var(--border);
         }
         .logo-area { display: flex; align-items: center; gap: 10px; }
+        
+        /* Updated Logo Styles */
         .logo-icon {
-            padding: 15px;
+            width: 40px; /* Fixed width for icon container */
+            height: 40px; /* Fixed height */
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
+            overflow: hidden; /* Ensure image doesn't overflow */
         }
+        
         .logo-text { font-weight: 800; font-size: 18px; letter-spacing: 1px; color: #fff; }
         .sidebar.collapsed .logo-text { display: none; }
         
@@ -206,7 +210,9 @@
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="logo-area">
-                <div class="logo-icon"><img src="FenixLogo.png" alt="Fenix Logo" style="width: 100%; height: 100%; object-fit: contain;"></i></div>
+                <div class="logo-icon">
+                    <img src="FenixLogo.png" alt="Fenix Logo" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
                 <div class="logo-text">UX-OPS <span style="color: var(--brand-red);">DASH</span></div>
             </div>
             <button onclick="toggleSidebar()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">
