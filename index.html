@@ -244,11 +244,11 @@
             </div>
             <div style="display: flex; align-items: center; gap: 20px;">
                 <div class="quarter-selector" id="quarter-selector">
-                    <button class="q-btn" onclick="setQuarter('All')">All</button>
+                    <button class="q-btn active" onclick="setQuarter('All')">All</button>
                     <button class="q-btn" onclick="setQuarter('Q1')">Q1</button>
                     <button class="q-btn" onclick="setQuarter('Q2')">Q2</button>
                     <button class="q-btn" onclick="setQuarter('Q3')">Q3</button>
-                    <button class="q-btn active" onclick="setQuarter('Q4')">Q4</button>
+                    <button class="q-btn" onclick="setQuarter('Q4')">Q4</button>
                 </div>
                 <div style="border-left: 1px solid var(--border); padding-left: 20px;">
                     <span style="font-size: 10px; color: #64748b; font-weight: 700; display: block; text-transform: uppercase;">Año Fiscal</span>
@@ -453,7 +453,7 @@
         // --- STATE ---
         let currentState = {
             tab: 'Vista General',
-            quarter: 'Q4'
+            quarter: 'All'
         };
 
         const processedData = RAW_DATA.map((item, i) => ({
